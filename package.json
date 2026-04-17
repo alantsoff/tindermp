@@ -1,0 +1,16 @@
+{
+  "name": "match-app",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.30.3",
+  "scripts": {
+    "dev": "pnpm -r --parallel --filter @match/api --filter @match/web run dev",
+    "build": "pnpm -r --filter @match/db --filter @match/api --filter @match/web run build",
+    "lint": "pnpm -r --filter @match/api --filter @match/web run lint",
+    "test": "pnpm -r --filter @match/api --filter @match/web run test",
+    "db:generate": "pnpm --filter @match/db run db:generate",
+    "db:migrate": "pnpm --filter @match/db run db:migrate",
+    "db:migrate:deploy": "pnpm --filter @match/db run db:migrate:deploy",
+    "deploy:server": "bash ./scripts/deploy-pull-build.sh"
+  }
+}

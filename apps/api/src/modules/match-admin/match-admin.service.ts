@@ -649,18 +649,25 @@ export class MatchAdminService {
       }),
     ]);
 
-    return { profile, swipes, matches, events };
+    // BigInt (id) не сериализуется в JSON — без этого Nest отдаёт 500.
+    const eventsJsonSafe = events.map((e) => ({
+      ...e,
+      id: e.id.toString(),
+    }));
+
+    return { profile, swipes, matches, events: eventsJsonSafe };
   }
 
   async userEvents(profileId: string, limit = 100, beforeId?: string) {
     const take = Math.min(Math.max(limit, 1), 500);
     const where: Prisma.MatchEventLogWhereInput = { profileId };
     if (beforeId) where.id = { lt: BigInt(beforeId) };
-    return this.prisma.matchEventLog.findMany({
+    const rows = await this.prisma.matchEventLog.findMany({
       where,
       orderBy: { id: 'desc' },
       take,
     });
+    return rows.map((e) => ({ ...e, id: e.id.toString() }));
   }
 
   async spamFlagged(minScore = 60) {

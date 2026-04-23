@@ -12,7 +12,17 @@ bash match-app/scripts/push-tindermp.sh
 
 (первый раз при необходимости: `git remote add tindermp https://github.com/alantsoff/tindermp.git` в корне monorepo; скрипт добавит remote сам). Пуш **перезаписывает** `main` на tindermp (`--force`).
 
-После пуша на сервере: `cd /var/www/tindermp && git pull origin main && pnpm install && pnpm db:migrate:deploy && pnpm build` (или `bash scripts/deploy-pull-build.sh`).
+После пуша на сервере: **если на GitHub был force-push** (`tindermp` перезаписан), обычный `git pull` может ругнуться на *divergent branches* — тогда **один раз**:
+
+```bash
+cd /var/www/tindermp
+git fetch origin
+git reset --hard origin/main
+```
+
+Дальше: `pnpm install --frozen-lockfile && pnpm db:migrate:deploy && pnpm build` (или `bash scripts/deploy-pull-build.sh`).
+
+Проверка, что обновилось: `grep db:migrate:deploy package.json` — в корне должен быть **`node packages/db/prisma-with-api-env.cjs`**, не `pnpm --filter`.
 
 ## 1) Clone and prepare env
 

@@ -1,5 +1,7 @@
 'use client';
 
+import { Chip } from './Chip';
+
 export const MATCH_ROLES = [
   { value: 'SELLER', label: 'Селлер' },
   { value: 'MANAGER', label: 'Менеджер' },
@@ -15,6 +17,8 @@ export const MATCH_ROLES = [
   { value: 'ACCOUNTANT', label: 'Бухгалтер' },
   { value: 'LAWYER', label: 'Юрист' },
   { value: 'PRODUCT_SOURCER', label: 'Подборщик товара' },
+  { value: 'ASSISTANTS', label: 'Ассистенты' },
+  { value: 'WHITE_IMPORT', label: 'Белый ввоз' },
   { value: 'CUSTOM', label: 'Свой вариант' },
 ] as const;
 
@@ -28,16 +32,12 @@ export function RolePicker({
   return (
     <div className="grid grid-cols-2 gap-2">
       {MATCH_ROLES.map((role) => (
-        <button
+        <Chip
           key={role.value}
-          type="button"
-          className={`rounded-xl border px-3 py-2 text-sm ${
-            value === role.value ? 'border-violet-400 bg-violet-500/20 text-white' : 'border-zinc-700 text-zinc-300'
-          }`}
-          onClick={() => onChange(role.value)}
-        >
-          {role.label}
-        </button>
+          label={role.label}
+          selected={value === role.value}
+          onToggle={() => onChange(role.value)}
+        />
       ))}
     </div>
   );

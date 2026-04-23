@@ -1,26 +1,521 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* =========================================================================
+   iOS 26 "Liquid Glass" design tokens
+   ---------------------------------------------------------------------------
+   Palette — Apple system colors (iOS 17+), adjusted for Liquid Glass.
+   Surfaces are translucent; the real colour comes from layered blur.
+   ========================================================================= */
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+:root {
+  /* Light mode defaults (iOS Light) */
+  --ios-bg-base: 242 242 247;          /* systemGroupedBackground */
+  --ios-bg-elevated: 255 255 255;       /* secondarySystemBackground */
+  --ios-bg-inset: 239 239 244;          /* tertiarySystemBackground */
+  --ios-fill-1: 120 120 128;            /* systemFill @ 0.12 */
+  --ios-fill-2: 120 120 128;            /* secondarySystemFill @ 0.16 */
+  --ios-fill-3: 118 118 128;            /* tertiarySystemFill @ 0.08 */
+
+  --ios-label: 0 0 0;                   /* label */
+  --ios-label-secondary: 60 60 67;      /* secondaryLabel */
+  --ios-label-tertiary: 60 60 67;       /* tertiaryLabel */
+  --ios-label-quaternary: 60 60 67;     /* quaternaryLabel */
+
+  --ios-separator: 60 60 67;            /* separator @ 0.18 */
+  --ios-separator-opaque: 198 198 200;  /* opaqueSeparator */
+
+  --ios-blue: 0 122 255;                /* systemBlue */
+  --ios-indigo: 88 86 214;              /* systemIndigo */
+  --ios-purple: 175 82 222;             /* systemPurple */
+  --ios-pink: 255 45 85;                /* systemPink */
+  --ios-red: 255 59 48;                 /* systemRed */
+  --ios-orange: 255 149 0;              /* systemOrange */
+  --ios-yellow: 255 204 0;              /* systemYellow */
+  --ios-green: 52 199 89;               /* systemGreen */
+  --ios-teal: 48 176 199;               /* systemTeal */
+  --ios-cyan: 50 173 230;               /* systemCyan */
+  --ios-gray: 142 142 147;              /* systemGray */
+  --ios-gray-2: 174 174 178;            /* systemGray2 */
+  --ios-gray-3: 199 199 204;            /* systemGray3 */
+  --ios-gray-4: 209 209 214;            /* systemGray4 */
+  --ios-gray-5: 229 229 234;            /* systemGray5 */
+  --ios-gray-6: 242 242 247;            /* systemGray6 */
+
+  --ios-tint: var(--ios-indigo);        /* app accent */
+
+  /* Liquid Glass materials — translucent fills over blur */
+  --material-ultra-thin: 255 255 255 / 0.45;
+  --material-thin: 255 255 255 / 0.55;
+  --material-regular: 255 255 255 / 0.7;
+  --material-thick: 255 255 255 / 0.82;
+
+  --material-chrome: 246 246 249 / 0.72; /* tab bars, nav bars */
+  --material-menu: 250 250 252 / 0.88;
+
+  --hairline: 0 0 0 / 0.08;
+  --hairline-strong: 0 0 0 / 0.12;
+
+  --shadow-glass: 0 18px 40px -16px rgba(15, 15, 35, 0.18),
+                  0 8px 18px -12px rgba(15, 15, 35, 0.12);
+  --shadow-pop: 0 1px 0 rgba(255, 255, 255, 0.6) inset,
+                0 14px 32px -14px rgba(15, 15, 35, 0.24);
+
+  --radius-card: 22px;
+  --radius-tile: 16px;
+  --radius-chip: 999px;
+
+  /* iOS-spring easing tokens — используй их вместо ease-out/default.
+     --ease-ios: общий iOS spring, плавное замедление в конце;
+     --ease-soft: мягкий fade, хорош для тапов и hover;
+     --ease-swipe-return: более длинный easing для возврата карточки;
+     --ease-swipe-fly: резкий start, плавное завершение — для вылета. */
+  --ease-ios: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-soft: cubic-bezier(0.33, 1, 0.68, 1);
+  --ease-swipe-return: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-swipe-fly: cubic-bezier(0.32, 0.72, 0, 1);
+
+  --dur-fast: 150ms;
+  --dur-base: 220ms;
+  --dur-medium: 320ms;
+  --dur-slow: 420ms;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    /* Dark mode — iOS Dark, slightly lifted from pure black so Liquid
+       Glass materials actually have something to tint against. */
+    --ios-bg-base: 14 14 18;              /* near-black, not #000, so blur works */
+    --ios-bg-elevated: 38 38 42;          /* secondarySystemBackground (lifted) */
+    --ios-bg-inset: 54 54 58;             /* tertiarySystemBackground */
+    --ios-fill-1: 118 118 128;
+    --ios-fill-2: 118 118 128;
+    --ios-fill-3: 118 118 128;
+
+    --ios-label: 255 255 255;
+    --ios-label-secondary: 235 235 245;
+    --ios-label-tertiary: 235 235 245;
+    --ios-label-quaternary: 235 235 245;
+
+    --ios-separator: 84 84 88;
+    --ios-separator-opaque: 56 56 58;
+
+    --ios-blue: 10 132 255;
+    --ios-indigo: 125 122 255;
+    --ios-purple: 191 90 242;
+    --ios-pink: 255 55 95;
+    --ios-red: 255 69 58;
+    --ios-orange: 255 159 10;
+    --ios-yellow: 255 214 10;
+    --ios-green: 48 209 88;
+    --ios-teal: 100 210 255;
+    --ios-cyan: 100 210 255;
+    --ios-gray: 142 142 147;
+    --ios-gray-2: 99 99 102;
+    --ios-gray-3: 72 72 74;
+    --ios-gray-4: 58 58 60;
+    --ios-gray-5: 44 44 46;
+    --ios-gray-6: 28 28 30;
+
+    --ios-tint: 175 155 255;              /* vivid violet, reads well on dark */
+
+    /* Materials in dark mode: solid enough that you can see the surface
+       even when placed directly over the body gradient. */
+    --material-ultra-thin: 68 68 76 / 0.62;
+    --material-thin: 62 62 72 / 0.72;
+    --material-regular: 56 56 66 / 0.82;
+    --material-thick: 42 42 52 / 0.9;
+
+    --material-chrome: 30 30 38 / 0.85;
+    --material-menu: 40 40 48 / 0.94;
+
+    --hairline: 255 255 255 / 0.12;
+    --hairline-strong: 255 255 255 / 0.2;
+
+    --shadow-glass: 0 18px 46px -18px rgba(0, 0, 0, 0.8),
+                    0 8px 18px -12px rgba(0, 0, 0, 0.55);
+    --shadow-pop: 0 1px 0 rgba(255, 255, 255, 0.1) inset,
+                  0 14px 36px -14px rgba(0, 0, 0, 0.75);
   }
 }
 
+/* Expose tokens to Tailwind v4 */
+@theme inline {
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+               "SF Pro Display", "Helvetica Neue", Helvetica, Arial,
+               system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-display: "SF Pro Display", -apple-system, BlinkMacSystemFont,
+                  "Helvetica Neue", system-ui, sans-serif;
+
+  --color-ios-bg: rgb(var(--ios-bg-base));
+  --color-ios-elevated: rgb(var(--ios-bg-elevated));
+  --color-ios-inset: rgb(var(--ios-bg-inset));
+
+  --color-ios-label: rgb(var(--ios-label));
+  --color-ios-label-secondary: rgb(var(--ios-label-secondary) / 0.72);
+  --color-ios-label-tertiary: rgb(var(--ios-label-tertiary) / 0.48);
+  --color-ios-label-quaternary: rgb(var(--ios-label-quaternary) / 0.24);
+
+  --color-ios-tint: rgb(var(--ios-tint));
+  --color-ios-blue: rgb(var(--ios-blue));
+  --color-ios-indigo: rgb(var(--ios-indigo));
+  --color-ios-purple: rgb(var(--ios-purple));
+  --color-ios-pink: rgb(var(--ios-pink));
+  --color-ios-red: rgb(var(--ios-red));
+  --color-ios-orange: rgb(var(--ios-orange));
+  --color-ios-yellow: rgb(var(--ios-yellow));
+  --color-ios-green: rgb(var(--ios-green));
+  --color-ios-teal: rgb(var(--ios-teal));
+  --color-ios-gray: rgb(var(--ios-gray));
+
+  --color-ios-separator: rgb(var(--ios-separator) / 0.18);
+  --color-ios-hairline: rgb(var(--hairline));
+}
+
+/* =========================================================================
+   Base
+   ========================================================================= */
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: rgb(var(--ios-bg-base));
+  color: rgb(var(--ios-label));
+  font-family: var(--font-sans);
+  font-feature-settings: "ss01", "cv11";
+  letter-spacing: -0.01em;
+  min-height: 100svh;
+}
+
+/* Subtle ambient gradient behind glass layers — makes blur visible even on
+   flat backgrounds, which gives Liquid Glass its depth. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  background:
+    radial-gradient(1200px 700px at 15% -10%, rgb(var(--ios-indigo) / 0.22), transparent 60%),
+    radial-gradient(900px 600px at 110% 10%, rgb(var(--ios-pink) / 0.18), transparent 65%),
+    radial-gradient(700px 500px at 50% 110%, rgb(var(--ios-teal) / 0.16), transparent 65%);
+}
+
+@media (prefers-color-scheme: dark) {
+  body::before {
+    /* Stronger washes in dark mode so blur materials actually pick up
+       colour — otherwise everything flattens to black-on-black. */
+    background:
+      radial-gradient(1200px 800px at 15% -10%, rgb(var(--ios-indigo) / 0.55), transparent 65%),
+      radial-gradient(900px 650px at 110% 10%, rgb(var(--ios-pink) / 0.38), transparent 70%),
+      radial-gradient(800px 600px at 50% 115%, rgb(var(--ios-teal) / 0.28), transparent 70%),
+      radial-gradient(600px 500px at 85% 60%, rgb(var(--ios-purple) / 0.22), transparent 70%);
+  }
+}
+
+::selection {
+  background: rgb(var(--ios-tint) / 0.28);
+  color: rgb(var(--ios-label));
+}
+
+input:-webkit-autofill,
+textarea:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px transparent inset !important;
+  -webkit-text-fill-color: rgb(var(--ios-label)) !important;
+  transition: background-color 9999s ease-in-out 0s;
+}
+
+/* =========================================================================
+   Liquid Glass utility classes
+   ========================================================================= */
+
+.glass {
+  background: rgb(var(--material-regular));
+  backdrop-filter: saturate(180%) blur(28px);
+  -webkit-backdrop-filter: saturate(180%) blur(28px);
+  border: 1px solid rgb(var(--hairline));
+  box-shadow: var(--shadow-glass);
+  border-radius: var(--radius-card);
+}
+
+.glass-thin {
+  background: rgb(var(--material-thin));
+  backdrop-filter: saturate(180%) blur(22px);
+  -webkit-backdrop-filter: saturate(180%) blur(22px);
+}
+
+.glass-ultra-thin {
+  background: rgb(var(--material-ultra-thin));
+  backdrop-filter: saturate(180%) blur(18px);
+  -webkit-backdrop-filter: saturate(180%) blur(18px);
+}
+
+.glass-thick {
+  background: rgb(var(--material-thick));
+  backdrop-filter: saturate(200%) blur(36px);
+  -webkit-backdrop-filter: saturate(200%) blur(36px);
+}
+
+.glass-chrome {
+  background: rgb(var(--material-chrome));
+  backdrop-filter: saturate(180%) blur(30px);
+  -webkit-backdrop-filter: saturate(180%) blur(30px);
+  border: 1px solid rgb(var(--hairline));
+}
+
+.glass-menu {
+  background: rgb(var(--material-menu));
+  backdrop-filter: saturate(180%) blur(32px);
+  -webkit-backdrop-filter: saturate(180%) blur(32px);
+  border: 1px solid rgb(var(--hairline));
+  box-shadow: var(--shadow-pop);
+  border-radius: 20px;
+}
+
+/* Swipe cards must remain fully opaque so the next stack layer
+   never shines through card content on desktop/mobile. */
+.match-swipe-card {
+  background: rgb(var(--ios-bg-elevated));
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid rgb(var(--hairline));
+  box-shadow: var(--shadow-glass);
+}
+
+/* Subtle highlight on top edge — mimics iOS 26 refraction */
+.glass-edge { position: relative; }
+.glass-edge::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgb(255 255 255 / 0.25) 0%,
+    rgb(255 255 255 / 0) 30%,
+    rgb(255 255 255 / 0) 100%
+  );
+  mix-blend-mode: overlay;
+}
+@media (prefers-color-scheme: dark) {
+  .glass-edge::before {
+    background: linear-gradient(
+      180deg,
+      rgb(255 255 255 / 0.16) 0%,
+      rgb(255 255 255 / 0) 36%,
+      rgb(255 255 255 / 0) 100%
+    );
+  }
+}
+
+/* iOS-style grouped inset list */
+.ios-group {
+  background: rgb(var(--ios-bg-elevated));
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgb(var(--hairline));
+  box-shadow: 0 6px 20px -14px rgba(0, 0, 0, 0.35);
+}
+.ios-group > * + * { border-top: 1px solid rgb(var(--hairline)); }
+
+.ios-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  min-height: 44px;
+  color: rgb(var(--ios-label));
+}
+.ios-row:active { background: rgb(var(--ios-fill-1) / 0.16); }
+
+.ios-title-large {
+  font-family: var(--font-display);
+  font-size: 34px;
+  line-height: 41px;
+  font-weight: 700;
+  letter-spacing: -0.024em;
+}
+.ios-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.ios-section-header {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgb(var(--ios-label-secondary) / 0.6);
+  padding: 16px 16px 6px;
+}
+
+/* Buttons */
+.ios-btn-primary {
+  background: rgb(var(--ios-tint));
+  color: white;
+  font-weight: 600;
+  padding: 14px 18px;
+  border-radius: 14px;
+  font-size: 17px;
+  letter-spacing: -0.02em;
+  transition: transform 0.1s ease, opacity 0.1s ease;
+  box-shadow: 0 6px 18px -8px rgb(var(--ios-tint) / 0.6);
+}
+.ios-btn-primary:active { transform: scale(0.98); opacity: 0.92; }
+.ios-btn-primary:disabled { opacity: 0.5; }
+
+.ios-btn-tinted {
+  background: rgb(var(--ios-tint) / 0.14);
+  color: rgb(var(--ios-tint));
+  font-weight: 600;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 15px;
+  transition: transform 0.1s ease;
+}
+.ios-btn-tinted:active { transform: scale(0.98); }
+
+.ios-btn-plain {
+  background: rgb(var(--ios-bg-elevated));
+  backdrop-filter: saturate(180%) blur(18px);
+  -webkit-backdrop-filter: saturate(180%) blur(18px);
+  border: 1px solid rgb(var(--hairline));
+  color: rgb(var(--ios-label));
+  font-weight: 600;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 15px;
+  transition: transform 0.1s ease, background-color 0.1s ease;
+}
+.ios-btn-plain:active { transform: scale(0.98); }
+
+/* Inputs */
+.ios-input {
+  background: rgb(var(--ios-bg-elevated));
+  border: 1px solid rgb(var(--hairline));
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 16px;
+  color: rgb(var(--ios-label));
+  box-sizing: border-box;
+  display: block;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.ios-input[type="date"] {
+  appearance: none;
+  -webkit-appearance: none;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  inline-size: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ios-input[type="date"]::-webkit-date-and-time-value {
+  text-align: left;
+}
+.ios-input[type="date"]::-webkit-datetime-edit {
+  min-width: 0;
+}
+.ios-input[type="date"]::-webkit-datetime-edit-fields-wrapper {
+  min-width: 0;
+}
+.ios-input[type="date"]::-webkit-calendar-picker-indicator {
+  opacity: 0.8;
+  margin: 0;
+}
+.ios-input::placeholder { color: rgb(var(--ios-label-secondary) / 0.5); }
+.ios-input:focus {
+  outline: none;
+  border-color: rgb(var(--ios-tint) / 0.7);
+  box-shadow: 0 0 0 3px rgb(var(--ios-tint) / 0.18);
+}
+
+.ios-spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 2px solid rgb(var(--ios-label-tertiary) / 0.35);
+  border-top-color: rgb(var(--ios-label));
+  animation: ios-spin 0.8s linear infinite;
+}
+@keyframes ios-spin { to { transform: rotate(1turn); } }
+
+/* =========================================================================
+   Reusable animations
+   ========================================================================= */
+
+@keyframes ios-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ios-pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes ios-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fade-up { animation: ios-fade-up var(--dur-medium) var(--ease-ios) both; }
+.animate-pop-in { animation: ios-pop-in var(--dur-medium) var(--ease-ios) both; }
+.animate-backdrop-in { animation: ios-backdrop-in var(--dur-base) var(--ease-soft) both; }
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 260ms;
+  animation-timing-function: var(--ease-ios);
+}
+
+/* Универсальный transition-helper для интерактивных элементов.
+   Применяет smooth property+transform transition с iOS-easing. */
+.ios-interactive {
+  transition:
+    background-color var(--dur-base) var(--ease-ios),
+    color var(--dur-base) var(--ease-ios),
+    border-color var(--dur-base) var(--ease-ios),
+    box-shadow var(--dur-base) var(--ease-ios),
+    transform var(--dur-fast) var(--ease-ios),
+    opacity var(--dur-base) var(--ease-soft);
+}
+.ios-interactive:active {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

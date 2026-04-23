@@ -1,6 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 
-@Controller('health')
+@Controller('match-api/health')
 export class HealthController {
   @Get()
   getHealth(): { status: string; timestamp: string; service: string } {

@@ -1,0 +1,62 @@
+import type { MatchRole } from '@prisma/client';
+
+export const ROLE_COMPLEMENT_MATRIX: Record<MatchRole, MatchRole[]> = {
+  SELLER: ['MANAGER', 'DESIGNER', 'AD_BUYER', 'EXPERT'],
+  MANAGER: ['SELLER', 'EXPERT'],
+  DESIGNER: ['SELLER', 'AD_BUYER'],
+  AD_BUYER: ['SELLER', 'DESIGNER'],
+  EXPERT: ['SELLER', 'MANAGER'],
+  PRODUCTION: ['SELLER', 'MANAGER'],
+  FULFILLMENT: ['SELLER', 'MANAGER'],
+  CARGO: ['SELLER', 'MANAGER'],
+  ANALYTICS_SERVICE: ['SELLER', 'MANAGER'],
+  LOGISTIC: ['SELLER', 'MANAGER'],
+  BLOGGER: ['SELLER', 'AD_BUYER'],
+  ACCOUNTANT: ['SELLER', 'MANAGER'],
+  LAWYER: ['SELLER', 'MANAGER'],
+  PRODUCT_SOURCER: ['SELLER', 'MANAGER'],
+  ASSISTANTS: ['SELLER', 'MANAGER'],
+  WHITE_IMPORT: ['SELLER', 'MANAGER', 'LOGISTIC', 'CARGO'],
+  CUSTOM: ['SELLER', 'MANAGER', 'DESIGNER', 'AD_BUYER', 'EXPERT'],
+};
+
+export const RANKING_WEIGHTS = {
+  ROLE_COMPLEMENT_BONUS: 50,
+  NICHE_OVERLAP_POINT: 10,
+  NICHE_OVERLAP_CAP: 5,
+  RECENT_ACTIVE_24H: 30,
+  RECENT_ACTIVE_7D: 10,
+  SUPER_LIKE_INCOMING: 100,
+  CITY_MATCH_EXACT: 15,
+  CITY_MATCH_REGION: 10,
+  MARKETPLACE_OVERLAP_POINT: 8,
+  MARKETPLACE_OVERLAP_CAP: 3,
+  WORK_FORMAT_OVERLAP: 5,
+  SPAMMER_LIKE_RATE_THRESHOLD: 0.95,
+  SPAMMER_MULTIPLIER: 0.3,
+  // Activity × reciprocity quadrant bonuses. Only applied when
+  // MATCH_RECIPROCITY_RANKING=1 so we can roll back independently of
+  // the shadow-write cron. Penalty for OVER_LIKER is intentionally mild
+  // — we don't want a negative feedback loop (see §9 of the plan).
+  QUADRANT_SOUGHT_AFTER: 30,
+  QUADRANT_SELECTIVE: 10,
+  QUADRANT_OVER_LIKER: -20,
+  QUADRANT_SLEEPING: 0,
+  // SwipeCard "В топе недели" badge threshold: SOUGHT_AFTER profiles
+  // above this activity score get the top-of-week pill. Below this —
+  // they're sought-after but too quiet to crown publicly.
+  WEEKLY_TOP_ACTIVITY_FLOOR: 0.7,
+} as const;
+
+export const DEFAULTS = {
+  MATCH_FEATURE_RANKING: '1',
+  MATCH_FEATURE_STREAKS: '1',
+  MATCH_FEATURE_DIGEST: '1',
+  MATCH_FEATURE_PENDING_LIKES: '1',
+  MATCH_LIKE_LIMIT_PER_DAY: 30,
+  MATCH_UNDO_COOLDOWN_SECONDS: 600,
+  MATCH_SWIPE_RESET_COOLDOWN_DAYS: 14,
+  MATCH_AUTO_RESET_INACTIVITY_THRESHOLD_DAYS: 60,
+  MATCH_PAUSE_MAX_DAYS: 90,
+  MATCH_DIGEST_MIN_FRESH: 3,
+} as const;

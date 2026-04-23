@@ -17,7 +17,7 @@ export class MatchBotWebhookController {
 
   @Post()
   @HttpCode(200)
-  async handleUpdate(@Body() body: TelegramUpdate): Promise<{ ok: boolean }> {
+  handleUpdate(@Body() body: TelegramUpdate): { ok: boolean } {
     const token = this.config.get<string>('MATCH_BOT_TOKEN')?.trim();
     const miniAppUrl = this.config.get<string>('MATCH_MINIAPP_URL')?.trim();
     if (!token || !miniAppUrl) {
@@ -32,7 +32,7 @@ export class MatchBotWebhookController {
     if (!chatId) return { ok: true };
 
     if (text === '/match' || text === '/start') {
-      await sendTelegramMessage(
+      void sendTelegramMessage(
         token,
         String(chatId),
         'Найди команду или клиентов за минуту 🔥',
@@ -43,7 +43,10 @@ export class MatchBotWebhookController {
             ],
           },
         },
-      );
+      ).catch((error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        this.logger.warn(`sendTelegramMessage failed: ${message}`);
+      });
     }
 
     return { ok: true };

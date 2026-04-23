@@ -22,12 +22,63 @@ enum MatchRole {
   ACCOUNTANT
   LAWYER
   PRODUCT_SOURCER
+  ASSISTANTS
+  WHITE_IMPORT
   CUSTOM
+}
+
+enum MatchWorkFormat {
+  REMOTE
+  OFFICE
+  HYBRID
+}
+
+enum MatchMarketplace {
+  WB
+  OZON
+  YANDEX_MARKET
+  MVIDEO
+  LAMODA
+  OTHER
+}
+
+enum MatchPhotoPreference {
+  ANY
+  WITH_PHOTO
+  WITHOUT_PHOTO
 }
 
 enum SwipeDirection {
   LIKE
   PASS
+}
+
+enum MatchActivityQuadrant {
+  SOUGHT_AFTER // high activity + high reciprocity — ядро комьюнити
+  SELECTIVE    // low activity + high reciprocity — листает редко, но заходит
+  OVER_LIKER   // high activity + low reciprocity — много лайкает, мало взаимности
+  SLEEPING     // low activity + low reciprocity — ещё не раскачался
+}
+
+enum MatchEventType {
+  MINIAPP_OPENED
+  PROFILE_CREATED
+  PROFILE_UPDATED
+  SWIPE_LIKE
+  SWIPE_PASS
+  SWIPE_SUPER
+  SWIPE_UNDO
+  SWIPE_RESET
+  MATCH_CREATED
+  MESSAGE_SENT
+  CONTACT_REVEALED
+  INVITE_REDEEMED
+  INVITE_ISSUED
+  INVITE_REVOKED
+  PROFILE_PAUSED
+  PROFILE_UNPAUSED
+  BANNED
+  UNBANNED
 }
 
 model User {
@@ -38,6 +89,7 @@ model User {
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
   profile         MatchProfile?
+  matchAdminAudits MatchAdminAudit[]
 }
 
 model MatchProfile {
@@ -49,9 +101,16 @@ model MatchProfile {
   displayName     String
   headline        String?
   bio             String?
+  experience      Int?
   city            String?
+  birthDate       DateTime?       @db.Date
+  zodiacSign      String?
+  workFormats     MatchWorkFormat[]
+  marketplaces    MatchMarketplace[]
+  marketplacesCustom String?
   niches          String[]
   skills          String[]
+  tools           String[]
   priceMin        Int?
   priceMax        Int?
   currency        String          @default("RUB")
@@ -59,15 +118,58 @@ model MatchProfile {
   portfolioUrl    String?
   telegramContact String?
   isActive        Boolean         @default(true)
+  lastActiveAt    DateTime        @default(now())
+  likeRateRecent  Float?
+  // Activity × reciprocity scoring — populated nightly by
+  // ActivityScoreService (see docs/CURSOR_TASKS_ACTIVITY_SCORE.md).
+  // Shadow-written behind MATCH_FEATURE_RECIPROCITY; consumers gate
+  // their own reads on sub-flags (badges/ranking/profile section).
+  likesSent14d     Int             @default(0)
+  likesReceived14d Int             @default(0)
+  matches14d       Int             @default(0)
+  activityScore    Float           @default(0)
+  reciprocityScore Float           @default(0)
+  quadrant         MatchActivityQuadrant @default(SLEEPING)
+  scoreUpdatedAt   DateTime?
+  nextInviteGrantAt DateTime?
+  swipeStreakDays Int             @default(0)
+  swipeStreakLastDay DateTime?    @db.Date
+  superLikeBalance Int            @default(0)
+  lastDigestSentAt DateTime?
+  lastPendingLikesPingAt DateTime?
+  pausedUntil     DateTime?
+  lastUndoAt      DateTime?
+  lastSwipeResetAt DateTime?
+  notificationsMuted Boolean      @default(false)
+  bannedAt        DateTime?
+  banReason       String?
+  shadowBanned    Boolean         @default(false)
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
   settings        MatchSettings?
   swipesFrom      MatchSwipe[]    @relation("SwipesFrom")
   swipesTo        MatchSwipe[]    @relation("SwipesTo")
   messagesSent    MatchMessage[]  @relation("MessageSender")
+  invitesIssued   MatchInviteCode[] @relation("InviteOwner")
+  invitedBy       MatchInviteCode?  @relation("InviteUsedBy")
+  events          MatchEventLog[]
+  spamSignal      MatchSpamSignal?
+  photos          MatchProfilePhoto[]
 
   @@index([role])
   @@index([isActive])
+  @@index([lastActiveAt])
+  @@index([pausedUntil])
+  @@index([quadrant])
+
+  // Помимо этих одиночных индексов в миграции 20260422143000_feed_partial_indexes
+  // созданы два partial index'а для горячего запроса ленты (feed.service.ts):
+  //   idx_MatchProfile_feed_active_lastActive — (lastActiveAt DESC)
+  //     WHERE isActive = true AND bannedAt IS NULL AND shadowBanned = false
+  //   idx_MatchProfile_feed_pausedUntil — (pausedUntil)
+  //     WHERE isActive = true AND bannedAt IS NULL AND shadowBanned = false
+  // Prisma их не описывает в schema (partial index с WHERE — это Unsupported
+  // atrribute в @@index). Prisma migrate их не удаляет и не пересоздаёт.
 }
 
 model MatchSettings {
@@ -75,7 +177,13 @@ model MatchSettings {
   profileId        String       @unique
   profile          MatchProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
   interestedRoles  MatchRole[]
+  interestedWorkFormats MatchWorkFormat[]
+  sameCityOnly     Boolean      @default(false)
+  interestedMarketplaces MatchMarketplace[]
   interestedNiches String[]
+  experienceMin    Int?
+  experienceMax    Int?
+  photoPreference  MatchPhotoPreference @default(ANY)
   hideFromFeed     Boolean      @default(false)
   updatedAt        DateTime     @updatedAt
 }
@@ -87,19 +195,24 @@ model MatchSwipe {
   toProfileId   String
   toProfile     MatchProfile   @relation("SwipesTo", fields: [toProfileId], references: [id], onDelete: Cascade)
   direction     SwipeDirection
+  isSuperLike   Boolean        @default(false)
   createdAt     DateTime       @default(now())
 
   @@unique([fromProfileId, toProfileId])
   @@index([fromProfileId])
   @@index([toProfileId])
+  @@index([fromProfileId, createdAt])
+  @@index([toProfileId, direction, createdAt])
 }
 
 model MatchPair {
   id         String         @id @default(cuid())
   profileAId String
   profileBId String
+  archivedByProfileIds String[] @default([])
   createdAt  DateTime       @default(now())
   messages   MatchMessage[]
+  reads      MatchPairRead[]
 
   @@unique([profileAId, profileBId])
   @@index([profileAId])
@@ -113,7 +226,103 @@ model MatchMessage {
   senderProfileId String
   senderProfile   MatchProfile @relation("MessageSender", fields: [senderProfileId], references: [id], onDelete: Cascade)
   body            String
+  systemGenerated Boolean      @default(false)
   createdAt       DateTime     @default(now())
 
   @@index([pairId, createdAt])
+}
+
+model MatchPairRead {
+  id         String    @id @default(cuid())
+  pairId     String
+  pair       MatchPair @relation(fields: [pairId], references: [id], onDelete: Cascade)
+  profileId  String
+  lastReadAt DateTime  @default(now())
+
+  @@unique([pairId, profileId])
+  @@index([profileId])
+}
+
+model MatchProfilePhoto {
+  id        String       @id @default(cuid())
+  profileId String
+  profile   MatchProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  url       String
+  order     Int          @default(0)
+  createdAt DateTime     @default(now())
+
+  @@index([profileId, order])
+}
+
+model MatchInviteCode {
+  id               String       @id @default(cuid())
+  code             String       @unique
+  ownerProfileId   String?
+  owner            MatchProfile? @relation("InviteOwner", fields: [ownerProfileId], references: [id], onDelete: SetNull)
+  usedByProfileId  String?      @unique
+  usedBy           MatchProfile? @relation("InviteUsedBy", fields: [usedByProfileId], references: [id], onDelete: SetNull)
+  usedAt           DateTime?
+  source           String
+  createdAt        DateTime     @default(now())
+  revokedAt        DateTime?
+
+  @@index([ownerProfileId])
+  @@index([usedByProfileId])
+}
+
+model MatchEventLog {
+  id              BigInt         @id @default(autoincrement())
+  profileId       String?
+  profile         MatchProfile?  @relation(fields: [profileId], references: [id], onDelete: SetNull)
+  userId          String?
+  type            MatchEventType
+  targetProfileId String?
+  payload         Json?
+  createdAt       DateTime       @default(now())
+
+  @@index([profileId, createdAt])
+  @@index([type, createdAt])
+  @@index([createdAt])
+}
+
+model MatchSpamSignal {
+  profileId               String       @id
+  profile                 MatchProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  likeRateRecent          Float?
+  swipesPerMinutePeak     Float?
+  zeroMatchRatio          Float?
+  duplicateFirstMsgCount  Int          @default(0)
+  invitedBurstFlag        Boolean      @default(false)
+  suspicionScore          Int          @default(0)
+  scoredAt                DateTime     @default(now())
+}
+
+model MatchDailyAggregate {
+  day             DateTime @db.Date @id
+  newProfiles     Int      @default(0)
+  activeProfiles  Int      @default(0)
+  swipes          Int      @default(0)
+  likes           Int      @default(0)
+  superLikes      Int      @default(0)
+  matches         Int      @default(0)
+  messages        Int      @default(0)
+  contactReveals  Int      @default(0)
+  invitesIssued   Int      @default(0)
+  invitesRedeemed Int      @default(0)
+  computedAt      DateTime @default(now())
+}
+
+model MatchAdminAudit {
+  id              BigInt   @id @default(autoincrement())
+  adminUserId     String
+  adminUser       User     @relation(fields: [adminUserId], references: [id], onDelete: Restrict)
+  action          String
+  targetProfileId String?
+  payload         Json?
+  reason          String?
+  createdAt       DateTime @default(now())
+
+  @@index([adminUserId, createdAt])
+  @@index([targetProfileId, createdAt])
+  @@index([action, createdAt])
 }

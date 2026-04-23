@@ -1,0 +1,2 @@
+ALTER TABLE "MatchProfile"
+ADD COLUMN "tools" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];

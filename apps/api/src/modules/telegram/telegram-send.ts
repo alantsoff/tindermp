@@ -1,3 +1,5 @@
+import { telegramFetch } from '../../common/telegram-fetch';
+
 type InlineButton = {
   text: string;
   url?: string;
@@ -13,7 +15,7 @@ export async function sendTelegramMessage(
 ): Promise<{ ok: boolean; error?: string }> {
   const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
   try {
-    const response = await fetch(url, {
+    const response = await telegramFetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

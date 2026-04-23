@@ -12,9 +12,16 @@ const cards: FeedCard[] = [
     displayName: 'Алиса',
     headline: 'Ищу команду',
     bio: null,
+    experience: null,
     city: null,
+    birthDate: null,
+    zodiacSign: null,
+    workFormats: [],
+    marketplaces: [],
+    marketplacesCustom: null,
     niches: ['wb'],
     skills: ['ads'],
+    tools: ['mpstats'],
     priceMin: null,
     priceMax: null,
     currency: 'RUB',
@@ -46,7 +53,7 @@ describe('SwipeStack', () => {
     fireEvent.pointerMove(card, { clientX: 200, clientY: 10 });
     fireEvent.pointerUp(card);
 
-    vi.advanceTimersByTime(300);
-    expect(onDecision).toHaveBeenCalled();
+    vi.advanceTimersByTime(400);
+    expect(onDecision).toHaveBeenCalledWith('LIKE', expect.objectContaining({ id: 'p1' }));
   });
 });

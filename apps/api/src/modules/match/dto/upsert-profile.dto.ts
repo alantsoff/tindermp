@@ -4,8 +4,12 @@ import {
   IsBoolean,
   IsEnum,
   IsInt,
+  IsNotEmpty,
+  Length,
   IsOptional,
   IsString,
+  Matches,
+  Max,
   MaxLength,
   Min,
   MinLength,
@@ -27,7 +31,19 @@ const MATCH_ROLES = [
   'ACCOUNTANT',
   'LAWYER',
   'PRODUCT_SOURCER',
+  'ASSISTANTS',
+  'WHITE_IMPORT',
   'CUSTOM',
+] as const;
+
+const MATCH_WORK_FORMATS = ['REMOTE', 'OFFICE', 'HYBRID'] as const;
+const MATCH_MARKETPLACES = [
+  'WB',
+  'OZON',
+  'YANDEX_MARKET',
+  'MVIDEO',
+  'LAMODA',
+  'OTHER',
 ] as const;
 
 export class UpsertProfileDto {
@@ -60,6 +76,37 @@ export class UpsertProfileDto {
   @MaxLength(120)
   city?: string;
 
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(15)
+  experience?: number;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(3)
+  @IsEnum(MATCH_WORK_FORMATS, { each: true })
+  workFormats?: (typeof MATCH_WORK_FORMATS)[number][];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @IsEnum(MATCH_MARKETPLACES, { each: true })
+  marketplaces?: (typeof MATCH_MARKETPLACES)[number][];
+
+  @ValidateIf(
+    (dto: UpsertProfileDto) => dto.marketplaces?.includes('OTHER') ?? false,
+  )
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
+  marketplacesCustom?: string;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  birthDate?: string;
+
   @IsArray()
   @ArrayMaxSize(30)
   @IsString({ each: true })
@@ -69,6 +116,12 @@ export class UpsertProfileDto {
   @ArrayMaxSize(40)
   @IsString({ each: true })
   skills!: string[];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(40)
+  @IsString({ each: true })
+  tools?: string[];
 
   @IsOptional()
   @IsInt()
@@ -101,6 +154,12 @@ export class UpsertProfileDto {
   telegramContact?: string;
 
   @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  @Length(9, 9)
+  inviteCode?: string;
+
+  @IsOptional()
   @IsBoolean()
   isActive?: boolean;
 
@@ -109,6 +168,22 @@ export class UpsertProfileDto {
   @ArrayMaxSize(20)
   @IsEnum(MATCH_ROLES, { each: true })
   interestedRoles?: (typeof MATCH_ROLES)[number][];
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(3)
+  @IsEnum(MATCH_WORK_FORMATS, { each: true })
+  interestedWorkFormats?: (typeof MATCH_WORK_FORMATS)[number][];
+
+  @IsOptional()
+  @IsBoolean()
+  sameCityOnly?: boolean;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @IsEnum(MATCH_MARKETPLACES, { each: true })
+  interestedMarketplaces?: (typeof MATCH_MARKETPLACES)[number][];
 
   @IsOptional()
   @IsArray()

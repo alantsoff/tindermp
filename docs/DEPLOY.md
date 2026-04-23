@@ -11,11 +11,14 @@ cp apps/web/.env.example apps/web/.env.local
 ```
 
 Fill `apps/api/.env`:
-- `DATABASE_URL`
+- `DATABASE_URL` (обязательно с параметрами пула, пример: `...?connection_limit=15&pool_timeout=10`; при pgbouncer в transaction mode можно добавить `&pgbouncer=true`)
 - `APP_BASE_URL`
 - `MATCH_MINIAPP_URL`
 - `MATCH_BOT_TOKEN`
 - `MATCH_JWT_SECRET`
+- `ADMIN_WEB_PASSWORD_HASH` (`node -e "require('bcrypt').hash(process.argv[1], 12).then(v=>console.log(v))" "your_password"`)
+- `MATCH_CORS_ORIGINS` (comma-separated origins)
+- `MATCH_UPLOADS_DIR` (например, `/var/www/match-app/apps/api/storage/match-media`)
 
 Fill `apps/web/.env.local`:
 - `NEXT_PUBLIC_API_URL` (for browser requests, usually `https://your-domain`)
@@ -27,6 +30,10 @@ Fill `apps/web/.env.local`:
 chmod +x scripts/deploy-pull-build.sh
 pnpm deploy:server
 ```
+
+Important:
+- Do not skip migrations for releases that change Prisma schema.
+- Release `eff77db` adds migration `20260421073000_add_match_experience`; API build can succeed while runtime fails if migration is not applied.
 
 ## 3) PM2 checks
 
@@ -40,11 +47,18 @@ pm2 logs match-web --lines 100
 
 - `/match-api/*` -> `http://127.0.0.1:3001`
 - `/telegram-webhook/match` -> `http://127.0.0.1:3001`
-- everything else -> `http://127.0.0.1:3000`
+- `/match-media/*` -> `http://127.0.0.1:3001`
+- everything else -> `http://127.0.0.1:3100`
 
 Example:
 
 ```nginx
+server {
+    listen 80;
+    server_name match.example.com;
+    return 301 https://$host$request_uri;
+}
+
 server {
     listen 443 ssl http2;
     server_name match.example.com;
@@ -67,8 +81,16 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    location /match-media/ {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+    }
+
     location / {
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://127.0.0.1:3100;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -90,7 +112,64 @@ curl -X POST "https://api.telegram.org/bot${MATCH_BOT_TOKEN}/setWebhook" \
 
 ## 6) Smoke check
 
-- `GET https://match.example.com/health` -> `status: ok`
+- `GET https://match.example.com/match-api/health` -> `status: ok`
 - Open `https://match.example.com/m`
 - In bot send `/match`, tap `Открыть Match`
 - Complete onboarding -> swipe -> mutual like -> open chat -> send message
+
+## 7) Production runbook (common incidents)
+
+### A) API returns 500 after deploy
+
+1. Check process and logs:
+   ```bash
+   pm2 ls
+   pm2 logs match-api --lines 120
+   ```
+2. Check env loaded by PM2 process:
+   ```bash
+   pm2 env match-api | grep -E "DATABASE_URL|MATCH_BOT_TOKEN|MATCH_JWT_SECRET|MATCH_DEV_AUTH_BYPASS"
+   ```
+3. Verify DB credentials outside Prisma:
+   ```bash
+   psql "postgresql://<user>:<pass>@127.0.0.1:5432/match_app" -c "select 1;"
+   ```
+
+### B) Prisma errors (`P1000`, `P3018`, missing columns)
+
+- `P1000`: wrong DB credentials in `DATABASE_URL` for the running process.
+- `P3018 ... must be owner of table`: migration user is not table owner.
+- Runtime error about missing `experience` column: code deployed without successful migration.
+
+Recover:
+```bash
+pnpm --filter @match/db run db:migrate:deploy
+pnpm --filter @match/db run db:generate
+```
+
+### C) Telegram auth fails (`SignatureInvalidError`)
+
+Cause: wrong `MATCH_BOT_TOKEN` for the bot that opens the mini app, or placeholder value.
+
+Fix:
+```bash
+export MATCH_BOT_TOKEN="<real_bot_token>"
+pm2 restart match-api --update-env
+```
+
+### D) PM2 uses stale command/env
+
+After changing runtime args/env, recreate processes and save dump:
+```bash
+pm2 delete match-api || true
+pm2 delete match-web || true
+pm2 start ecosystem.config.cjs --only match-api --env production
+pm2 start ecosystem.config.cjs --only match-web --env production
+pm2 save
+```
+
+### E) Safety rules for production env
+
+- Never run production with `MATCH_DEV_AUTH_BYPASS=1`.
+- Never keep placeholder values like `YOUR_MATCH_BOT_TOKEN`.
+- Keep one source of truth for env files used by deploy and PM2.

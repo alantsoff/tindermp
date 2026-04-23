@@ -6,4 +6,13 @@ dist
 .next
 coverage
 *.log
-pnpm-lock.yaml
+
+# runtime uploads / media
+storage/
+
+# db backups / dumps (создаются скриптами backfill)
+pre-backfill-*.sql.gz
+*.sql.gz
+
+# локальные backup-копии pm2 конфига
+ecosystem.config.cjs.bak.*

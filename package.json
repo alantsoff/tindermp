@@ -8,9 +8,9 @@
     "build": "pnpm -r --filter @match/db --filter @match/api --filter @match/web run build",
     "lint": "pnpm -r --filter @match/api --filter @match/web run lint",
     "test": "pnpm -r --filter @match/api --filter @match/web run test",
-    "db:generate": "pnpm --filter @match/db run db:generate",
-    "db:migrate": "pnpm --filter @match/db run db:migrate",
-    "db:migrate:deploy": "pnpm --filter @match/db run db:migrate:deploy",
+    "db:generate": "node packages/db/prisma-with-api-env.cjs generate --schema prisma/schema.prisma",
+    "db:migrate": "node packages/db/prisma-with-api-env.cjs migrate dev --schema prisma/schema.prisma",
+    "db:migrate:deploy": "node packages/db/prisma-with-api-env.cjs migrate deploy --schema prisma/schema.prisma",
     "deploy:server": "bash ./scripts/deploy-pull-build.sh"
   }
 }

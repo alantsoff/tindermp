@@ -147,7 +147,9 @@ Recover (всегда из **корня** репозитория, напр. `/va
 pnpm db:migrate:deploy
 pnpm db:generate
 ```
-Корневой `package.json` вызывает `node packages/db/prisma-with-api-env.cjs` (не зависит от `pnpm --filter` и кэша воркспейса).
+Корневой `package.json` вызывает `node packages/db/prisma-with-api-env.cjs` (не зависит от `pnpm --filter` и кэша воркспейса). Дубль: `bash scripts/migrate-deploy.sh` из корня.
+
+**Если в логе по-прежнему строка `> prisma migrate deploy` (без `prisma-with-api-env`)** — на сервере **не тот** `packages/db/package.json` (не сделан `git pull` или локальные правки). Проверка: `head -12 packages/db/package.json` — в `db:migrate:deploy` должно начинаться с `node prisma-with-api-env.cjs`. Иначе: `git pull origin main`, при необходимости `git status` / `git diff packages/db`.
 
 ### C) Telegram auth fails (`SignatureInvalidError`)
 

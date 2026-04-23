@@ -11,10 +11,10 @@
     "db:migrate:deploy": "node prisma-with-api-env.cjs migrate deploy --schema prisma/schema.prisma"
   },
   "dependencies": {
-    "@prisma/client": "^6.19.2"
+    "@prisma/client": "^6.19.2",
+    "dotenv": "^16.4.7"
   },
   "devDependencies": {
-    "dotenv": "^16.4.7",
     "prisma": "^6.19.2",
     "typescript": "^5.9.3"
   }

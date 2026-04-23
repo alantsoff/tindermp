@@ -53,6 +53,9 @@ function buildService(overrides?: {
       findUnique: jest.fn().mockResolvedValue(existingProfile),
       upsert: jest.fn().mockResolvedValue({ id: 'new-profile-id' }),
     },
+    matchSettings: {
+      upsert: jest.fn().mockResolvedValue({}),
+    },
     user: {
       findUnique: jest.fn().mockResolvedValue(user),
     },
@@ -84,7 +87,7 @@ function buildService(overrides?: {
   const eventLogger = { log: jest.fn() };
 
   // Мы тестируем только путь до/вокруг redeem, глушим остальные эффекты
-  // апсерта (initial swipe reset, settings upsert и т.п.) через $transaction mock.
+  // апсерта и финальный getMe() (тяжёлые include/swipe count) — см. getMeSpy в describe.
   const service = new ProfileService(
     prisma as never,
     inviteService as never,
@@ -96,8 +99,25 @@ function buildService(overrides?: {
 
 describe('ProfileService.upsertProfile — invite-only enforcement', () => {
   const originalEnv = { ...process.env };
+  let getMeSpy: jest.SpyInstance;
+
+  beforeAll(() => {
+    getMeSpy = jest
+      .spyOn(ProfileService.prototype, 'getMe')
+      .mockResolvedValue({ profile: { id: 'p1' } } as Awaited<
+        ReturnType<ProfileService['getMe']>
+      >);
+  });
+
+  afterAll(() => {
+    getMeSpy.mockRestore();
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
+    getMeSpy.mockResolvedValue({ profile: { id: 'p1' } } as Awaited<
+      ReturnType<ProfileService['getMe']>
+    >);
     jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
   });

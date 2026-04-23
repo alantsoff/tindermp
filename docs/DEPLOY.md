@@ -140,7 +140,7 @@ curl -X POST "https://api.telegram.org/bot${MATCH_BOT_TOKEN}/setWebhook" \
 - `P1000`: wrong DB credentials in `DATABASE_URL` for the running process.
 - `P3018 ... must be owner of table`: migration user is not table owner.
 - Runtime error about missing `experience` column: code deployed without successful migration.
-- `P1012` / `Environment variable not found: DATABASE_URL`: у Prisma в `packages/db` нет доступа к env, пока не подгружен файл. Скрипты `@match/db` читают **`apps/api/.env`** через `dotenv-cli` — файл должен существовать на сервере и содержать `DATABASE_URL=...` (как у `match-api` в PM2).
+- `P1012` / `Environment variable not found: DATABASE_URL`: Prisma читает `DATABASE_URL` из процесса. Скрипты `@match/db` вызывают **`packages/db/prisma-with-api-env.cjs`**: он подгружает **`apps/api/.env`** через `dotenv` (без shell/`export` — не ломается фоновый `&`). Файл `apps/api/.env` на сервере обязан существовать и содержать `DATABASE_URL=...` (как у `match-api` в PM2).
 
 Recover:
 ```bash

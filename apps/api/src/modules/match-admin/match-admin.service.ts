@@ -33,6 +33,19 @@ function addDays(date: Date, value: number): Date {
   return next;
 }
 
+function addHours(date: Date, value: number): Date {
+  const next = new Date(date);
+  next.setUTCHours(next.getUTCHours() + value);
+  return next;
+}
+
+function alignToHourStartUtc(d: Date): Date {
+  const t = new Date(d);
+  t.setUTCMinutes(0, 0, 0);
+  t.setUTCMilliseconds(0);
+  return t;
+}
+
 /**
  * Приводит произвольную строку из query-параметра к значению enum'а
  * Prisma. Принимает value case-insensitive (админ может вбить `seller`,
@@ -281,6 +294,114 @@ export class MatchAdminService {
       day: row.day.toISOString().slice(0, 10),
       value: Number(row[key] ?? 0),
     }));
+  }
+
+  /**
+   * Временной ряд для дашборда: регистрации (новые профили), свайпы, матчи.
+   * `day` — агрегаты MatchDailyAggregate; `hour` — сырые события с дискретностью 1ч (лимит периода).
+   */
+  async metricsSeries(granularity: 'day' | 'hour', period: number) {
+    if (granularity === 'day') {
+      const days = Math.min(Math.max(period || 30, 1), 180);
+      const rangeEnd = startOfDay(new Date());
+      const rangeStart = startOfDay(addDays(rangeEnd, -(days - 1)));
+      const rows = await this.prisma.matchDailyAggregate.findMany({
+        where: { day: { gte: rangeStart, lte: rangeEnd } },
+        orderBy: { day: 'asc' },
+        select: {
+          day: true,
+          newProfiles: true,
+          swipes: true,
+          matches: true,
+        },
+      });
+      const byDay = new Map(
+        rows.map((r) => {
+          const key = r.day.toISOString().slice(0, 10);
+          return [
+            key,
+            {
+              t: key,
+              registrations: r.newProfiles,
+              swipes: r.swipes,
+              matches: r.matches,
+            },
+          ] as const;
+        }),
+      );
+      const points: Array<{
+        t: string;
+        registrations: number;
+        swipes: number;
+        matches: number;
+      }> = [];
+      for (let t = rangeStart.getTime(); t <= rangeEnd.getTime(); t += 86400_000) {
+        const key = new Date(t).toISOString().slice(0, 10);
+        points.push(
+          byDay.get(key) ?? {
+            t: key,
+            registrations: 0,
+            swipes: 0,
+            matches: 0,
+          },
+        );
+      }
+      return { granularity: 'day' as const, periodDays: days, points };
+    }
+
+    const maxDays = 14;
+    const days = Math.min(Math.max(period || 7, 1), maxDays);
+    const end = alignToHourStartUtc(new Date());
+    const since = addHours(end, -days * 24);
+
+    type Row = { bucket: Date; c: bigint };
+    const [regs, swp, mtc] = await Promise.all([
+      this.prisma.$queryRaw<Row[]>(
+        Prisma.sql`SELECT date_trunc('hour', "createdAt") AS bucket, COUNT(*)::bigint AS c
+        FROM "MatchProfile"
+        WHERE "createdAt" >= ${since} AND "createdAt" < ${end}
+        GROUP BY 1
+        ORDER BY 1`,
+      ),
+      this.prisma.$queryRaw<Row[]>(
+        Prisma.sql`SELECT date_trunc('hour', "createdAt") AS bucket, COUNT(*)::bigint AS c
+        FROM "MatchSwipe"
+        WHERE "createdAt" >= ${since} AND "createdAt" < ${end}
+        GROUP BY 1
+        ORDER BY 1`,
+      ),
+      this.prisma.$queryRaw<Row[]>(
+        Prisma.sql`SELECT date_trunc('hour', "createdAt") AS bucket, COUNT(*)::bigint AS c
+        FROM "MatchPair"
+        WHERE "createdAt" >= ${since} AND "createdAt" < ${end}
+        GROUP BY 1
+        ORDER BY 1`,
+      ),
+    ]);
+    const regMap = new Map(
+      regs.map((r) => [r.bucket.getTime(), Number(r.c)] as const),
+    );
+    const swpMap = new Map(
+      swp.map((r) => [r.bucket.getTime(), Number(r.c)] as const),
+    );
+    const mtcMap = new Map(
+      mtc.map((r) => [r.bucket.getTime(), Number(r.c)] as const),
+    );
+    const points: Array<{
+      t: string;
+      registrations: number;
+      swipes: number;
+      matches: number;
+    }> = [];
+    for (let t = since.getTime(); t < end.getTime(); t += 3600_000) {
+      points.push({
+        t: new Date(t).toISOString(),
+        registrations: regMap.get(t) ?? 0,
+        swipes: swpMap.get(t) ?? 0,
+        matches: mtcMap.get(t) ?? 0,
+      });
+    }
+    return { granularity: 'hour' as const, periodDays: days, points };
   }
 
   async roleDistribution() {

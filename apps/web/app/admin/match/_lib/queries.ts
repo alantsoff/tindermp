@@ -6,6 +6,8 @@ import { matchAdminApi } from './api';
 const keys = {
   authMe: ['match-admin', 'auth', 'me'] as const,
   overview: ['match-admin', 'overview'] as const,
+  metricsSeries: (g: 'day' | 'hour', period: number) =>
+    ['match-admin', 'metrics-series', g, period] as const,
   users: (params: Record<string, unknown>) => ['match-admin', 'users', params] as const,
   user: (profileId: string) => ['match-admin', 'user', profileId] as const,
   invites: (params: Record<string, unknown>) => ['match-admin', 'invites', params] as const,
@@ -25,6 +27,13 @@ export function useAdminAuthMe() {
 
 export function useAdminOverview() {
   return useQuery({ queryKey: keys.overview, queryFn: () => matchAdminApi.overview() });
+}
+
+export function useAdminMetricsSeries(params: { granularity: 'day' | 'hour'; period: number }) {
+  return useQuery({
+    queryKey: keys.metricsSeries(params.granularity, params.period),
+    queryFn: () => matchAdminApi.metricsSeries(params),
+  });
 }
 
 export function useAdminUsers(params: {

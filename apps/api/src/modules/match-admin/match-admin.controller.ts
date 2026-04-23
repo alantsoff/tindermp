@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  DefaultValuePipe,
   Get,
   Param,
   ParseIntPipe,
@@ -51,6 +52,15 @@ export class MatchAdminController {
     @Query('period', new ParseIntPipe({ optional: true })) period?: number,
   ) {
     return this.service.timeseries(metric, period ?? 30);
+  }
+
+  @Get('metrics-series')
+  metricsSeries(
+    @Query('granularity') rawGranularity = 'day',
+    @Query('period', new DefaultValuePipe(30), ParseIntPipe) period: number,
+  ) {
+    const granularity = rawGranularity === 'hour' ? 'hour' : 'day';
+    return this.service.metricsSeries(granularity, period);
   }
 
   @Get('role-distribution')

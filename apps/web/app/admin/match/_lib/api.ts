@@ -105,6 +105,21 @@ export const matchAdminApi = {
       `/match-admin/timeseries?metric=${encodeURIComponent(metric)}&period=${period}`,
     );
   },
+  metricsSeries(params: { granularity: 'day' | 'hour'; period: number }) {
+    const search = new URLSearchParams();
+    search.set('granularity', params.granularity);
+    search.set('period', String(params.period));
+    return adminFetch<{
+      granularity: 'day' | 'hour';
+      periodDays: number;
+      points: Array<{
+        t: string;
+        registrations: number;
+        swipes: number;
+        matches: number;
+      }>;
+    }>(`/match-admin/metrics-series?${search.toString()}`);
+  },
   roleDistribution() {
     return adminFetch<Array<{ role: string; count: number }>>('/match-admin/role-distribution');
   },

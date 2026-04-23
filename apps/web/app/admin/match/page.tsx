@@ -1,7 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useAdminOverview } from './_lib/queries';
+import { useMemo, useState } from 'react';
+import { AdminMetricsCharts } from './_components/admin-metrics-charts';
+import { useAdminMetricsSeries, useAdminOverview } from './_lib/queries';
 
 function KpiCard({
   label,
@@ -18,8 +20,24 @@ function KpiCard({
   );
 }
 
+const PERIODS_DAY = [7, 30, 60, 90, 180] as const;
+const PERIODS_HOUR = [1, 3, 7, 14] as const;
+
 export default function MatchAdminDashboardPage() {
   const { data, isLoading } = useAdminOverview();
+  const [granularity, setGranularity] = useState<'day' | 'hour'>('day');
+  const [periodDay, setPeriodDay] = useState(30);
+  const [periodHour, setPeriodHour] = useState(7);
+
+  const period = granularity === 'day' ? periodDay : periodHour;
+  const metricsQuery = useAdminMetricsSeries({ granularity, period });
+
+  const periodLabel = useMemo(() => {
+    if (granularity === 'day') {
+      return `По дням, последние ${period} дн.`;
+    }
+    return `По часам, последние ${period} сут.`;
+  }, [granularity, period]);
 
   if (isLoading) {
     return <div className="text-sm text-zinc-500">Загрузка dashboard...</div>;
@@ -29,6 +47,58 @@ export default function MatchAdminDashboardPage() {
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm">
+        <span className="text-zinc-500">Графики:</span>
+        <div className="flex rounded-lg border border-zinc-700 p-0.5">
+          <button
+            type="button"
+            onClick={() => setGranularity('day')}
+            className={`rounded-md px-3 py-1.5 ${
+              granularity === 'day' ? 'bg-violet-600 text-white' : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            По дням
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setGranularity('hour');
+              setPeriodHour((h) => (PERIODS_HOUR.includes(h as (typeof PERIODS_HOUR)[number]) ? h : 7));
+            }}
+            className={`rounded-md px-3 py-1.5 ${
+              granularity === 'hour' ? 'bg-violet-600 text-white' : 'text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            По часам
+          </button>
+        </div>
+        <label className="flex items-center gap-2">
+          <span className="text-zinc-500">Период</span>
+          <select
+            className="rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-zinc-200"
+            value={String(period)}
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              if (granularity === 'day') setPeriodDay(v);
+              else setPeriodHour(v);
+            }}
+          >
+            {(granularity === 'day' ? PERIODS_DAY : PERIODS_HOUR).map((d) => (
+              <option key={d} value={d}>
+                {granularity === 'day' ? `${d} дн.` : `${d} сут.`}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <AdminMetricsCharts
+        granularity={granularity}
+        periodLabel={periodLabel}
+        data={metricsQuery.data?.points}
+        isLoading={metricsQuery.isLoading}
+      />
+
       <div className="grid gap-3 md:grid-cols-4">
         <KpiCard label="DAU" value={data.kpis.dau} />
         <KpiCard label="WAU" value={data.kpis.wau} />

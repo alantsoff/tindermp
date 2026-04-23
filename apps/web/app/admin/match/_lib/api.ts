@@ -3,9 +3,13 @@
 export const ADMIN_TOKEN_KEY = 'matchAdminToken';
 
 function getApiBaseUrl(): string {
+  // В браузере — только same-origin, чтобы next.config rewrites
+  // проксировали /match-admin → API. Иначе при NEXT_PUBLIC_API_URL на
+  // отдельном хосте, где в nginx нет /match-admin (только /match-api),
+  // часть админ-запросов (в т.ч. metrics-series) падает с 404.
+  if (typeof window !== 'undefined') return '';
   const fromEnv = process.env.NEXT_PUBLIC_API_URL?.trim();
   if (fromEnv) return fromEnv.replace(/\/$/, '');
-  if (typeof window !== 'undefined') return '';
   return 'http://127.0.0.1:3001';
 }
 

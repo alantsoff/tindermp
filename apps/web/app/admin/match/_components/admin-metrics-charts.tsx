@@ -47,9 +47,10 @@ function ChartBlock({
   showX: boolean;
 }) {
   return (
-    <div>
+    <div className="min-w-0 w-full">
       <p className="mb-1 text-xs font-medium text-zinc-400">{title}</p>
-      <ResponsiveContainer width="100%" height={160}>
+      <div className="h-[160px] w-full min-w-0">
+        <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: showX ? 4 : 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#3f3f46" />
           <XAxis
@@ -87,7 +88,8 @@ function ChartBlock({
             name={title}
           />
         </LineChart>
-      </ResponsiveContainer>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }
@@ -97,16 +99,30 @@ export function AdminMetricsCharts({
   periodLabel,
   data,
   isLoading,
+  isError,
+  errorMessage,
 }: {
   granularity: 'day' | 'hour';
   periodLabel: string;
   data: Point[] | undefined;
   isLoading: boolean;
+  isError?: boolean;
+  errorMessage?: string;
 }) {
   if (isLoading) {
     return (
       <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 text-sm text-zinc-500">
         Загрузка графиков…
+      </div>
+    );
+  }
+  if (isError) {
+    return (
+      <div className="rounded-xl border border-amber-900/50 bg-amber-950/30 p-4 text-sm text-amber-100">
+        <p className="font-medium">Графики не загрузились</p>
+        <p className="mt-1 break-words text-amber-200/80">
+          {errorMessage?.trim() || 'Ошибка запроса. Часто это старая версия API: перезапустите match-api после deploy или проверьте, что /match-admin/metrics-series доступен.'}
+        </p>
       </div>
     );
   }

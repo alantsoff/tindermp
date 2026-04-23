@@ -97,6 +97,14 @@ export default function MatchAdminDashboardPage() {
         periodLabel={periodLabel}
         data={metricsQuery.data?.points}
         isLoading={metricsQuery.isLoading}
+        isError={metricsQuery.isError}
+        errorMessage={
+          metricsQuery.error instanceof Error
+            ? metricsQuery.error.message
+            : metricsQuery.error != null
+              ? String(metricsQuery.error)
+              : undefined
+        }
       />
 
       <div className="grid gap-3 md:grid-cols-4">

@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -37,6 +38,8 @@ function uniqTrimmed(values: string[] | undefined): string[] {
 
 @Injectable()
 export class ProfileService {
+  private readonly logger = new Logger(ProfileService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly inviteService: InviteService,
@@ -281,9 +284,11 @@ export class ProfileService {
     ]);
 
     const inviteOnlyEnabled = this.isInviteOnlyEnabled();
-    const isAdminCreation =
-      this.isAdminTelegramId(user?.telegramId) ||
-      this.isInviteBypassUsername(user?.telegramUsername);
+    const isAdminBypass = this.isAdminTelegramId(user?.telegramId);
+    const isUsernameBypass = this.isInviteBypassUsername(
+      user?.telegramUsername,
+    );
+    const isAdminCreation = isAdminBypass || isUsernameBypass;
     // Флаг "требовать ли код для создания профиля" — настраивается env
     // и обходится админами/bypass-username'ами.
     const inviteRequired =
@@ -294,6 +299,24 @@ export class ProfileService {
 
     if (inviteRequired && !inviteCode) {
       throw new BadRequestException({ code: 'invite_required' });
+    }
+
+    // Аудит штатных обходов: admins и bypass-usernames — единственные
+    // два законных пути создать профиль без инвайта. Логируем каждое
+    // срабатывание, чтобы оператор мог периодически ревьюить, кто и
+    // когда проходил без кода (поиск по 'invite bypass' в логах API).
+    if (
+      inviteOnlyEnabled &&
+      !existingProfile &&
+      isAdminCreation &&
+      !inviteCode
+    ) {
+      this.logger.warn(
+        `invite bypass on profile creation: userId=${userId} ` +
+          `telegramId=${user?.telegramId ?? 'null'} ` +
+          `username=${user?.telegramUsername ?? 'null'} ` +
+          `reason=${isAdminBypass ? 'admin' : 'username_bypass'}`,
+      );
     }
 
     // Код всегда расходуется при создании профиля, если передан.

@@ -6,14 +6,15 @@
   "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "db:generate": "prisma generate --schema prisma/schema.prisma",
-    "db:migrate": "prisma migrate dev --schema prisma/schema.prisma",
-    "db:migrate:deploy": "prisma migrate deploy --schema prisma/schema.prisma"
+    "db:generate": "dotenv -e ../../apps/api/.env -- prisma generate --schema prisma/schema.prisma",
+    "db:migrate": "dotenv -e ../../apps/api/.env -- prisma migrate dev --schema prisma/schema.prisma",
+    "db:migrate:deploy": "dotenv -e ../../apps/api/.env -- prisma migrate deploy --schema prisma/schema.prisma"
   },
   "dependencies": {
     "@prisma/client": "^6.19.2"
   },
   "devDependencies": {
+    "dotenv-cli": "^7.4.2",
     "prisma": "^6.19.2",
     "typescript": "^5.9.3"
   }

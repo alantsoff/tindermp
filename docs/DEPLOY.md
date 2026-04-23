@@ -140,11 +140,13 @@ curl -X POST "https://api.telegram.org/bot${MATCH_BOT_TOKEN}/setWebhook" \
 - `P1000`: wrong DB credentials in `DATABASE_URL` for the running process.
 - `P3018 ... must be owner of table`: migration user is not table owner.
 - Runtime error about missing `experience` column: code deployed without successful migration.
+- `P1012` / `Environment variable not found: DATABASE_URL`: у Prisma в `packages/db` нет доступа к env, пока не подгружен файл. Скрипты `@match/db` читают **`apps/api/.env`** через `dotenv-cli` — файл должен существовать на сервере и содержать `DATABASE_URL=...` (как у `match-api` в PM2).
 
 Recover:
 ```bash
-pnpm --filter @match/db run db:migrate:deploy
-pnpm --filter @match/db run db:generate
+# из корня match-app; подтянет DATABASE_URL из apps/api/.env
+pnpm db:migrate:deploy
+pnpm db:generate
 ```
 
 ### C) Telegram auth fails (`SignatureInvalidError`)

@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -73,6 +74,8 @@ const LOCAL_DEMO_PROFILES = [
 
 @Injectable()
 export class MatchAuthService {
+  private readonly logger = new Logger(MatchAuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
@@ -151,35 +154,51 @@ export class MatchAuthService {
       select: { id: true },
     });
 
-    const profile = await this.prisma.matchProfile.upsert({
-      where: { userId: user.id },
-      update: {
-        role: 'SELLER',
-        displayName,
-        headline: 'Локальный тестовый аккаунт',
-        bio: 'Профиль для локальной отладки mini-app.',
-        city: 'Москва',
-        workFormats: ['REMOTE'],
-        marketplaces: ['WB'],
-        niches: ['demo'],
-        skills: ['demo'],
-        isActive: true,
-      },
-      create: {
-        userId: user.id,
-        role: 'SELLER',
-        displayName,
-        headline: 'Локальный тестовый аккаунт',
-        bio: 'Профиль для локальной отладки mini-app.',
-        city: 'Москва',
-        workFormats: ['REMOTE'],
-        marketplaces: ['WB'],
-        niches: ['demo'],
-        skills: ['demo'],
-        isActive: true,
-      },
-      select: { id: true },
-    });
+    // Профиль через dev-bypass создаётся ТОЛЬКО вне production.
+    // Если prod-оператор намеренно или по ошибке включил
+    // MATCH_DEV_AUTH_BYPASS_IN_PRODUCTION, мы всё равно не создаём dev-профиль
+    // и возвращаем profileId=null, чтобы пользователь прошёл обычный
+    // invite-only поток через /m/invite → /m/onboarding. Это убирает
+    // последний путь обхода инвайта через dev-режим.
+    const isProduction =
+      process.env.NODE_ENV?.trim().toLowerCase() === 'production';
+    const profile = isProduction
+      ? null
+      : await this.prisma.matchProfile.upsert({
+          where: { userId: user.id },
+          update: {
+            role: 'SELLER',
+            displayName,
+            headline: 'Локальный тестовый аккаунт',
+            bio: 'Профиль для локальной отладки mini-app.',
+            city: 'Москва',
+            workFormats: ['REMOTE'],
+            marketplaces: ['WB'],
+            niches: ['demo'],
+            skills: ['demo'],
+            isActive: true,
+          },
+          create: {
+            userId: user.id,
+            role: 'SELLER',
+            displayName,
+            headline: 'Локальный тестовый аккаунт',
+            bio: 'Профиль для локальной отладки mini-app.',
+            city: 'Москва',
+            workFormats: ['REMOTE'],
+            marketplaces: ['WB'],
+            niches: ['demo'],
+            skills: ['demo'],
+            isActive: true,
+          },
+          select: { id: true },
+        });
+
+    if (isProduction) {
+      this.logger.warn(
+        `dev-bypass auth used in production for telegramId=${telegramId} — profile creation skipped, user must go through invite flow`,
+      );
+    }
 
     if (this.shouldSeedLocalDemoProfiles()) {
       for (const demo of LOCAL_DEMO_PROFILES) {

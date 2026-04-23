@@ -1,11 +1,25 @@
 # Deploy to VPS (PM2 + Nginx)
 
+## Репозиторий на сервере (tindermp)
+
+Прод-репо для клона на VPS: **`https://github.com/alantsoff/tindermp`** — в нём **только** содержимое папки `match-app` из monorepo (корень = `apps/`, `packages/`, а не `match-app/apps`).
+
+Обновлять tindermp с машины, где лежит monorepo (например `zakazyffbot` с каталогом `match-app`):
+
+```bash
+bash match-app/scripts/push-tindermp.sh
+```
+
+(первый раз при необходимости: `git remote add tindermp https://github.com/alantsoff/tindermp.git` в корне monorepo; скрипт добавит remote сам). Пуш **перезаписывает** `main` на tindermp (`--force`).
+
+После пуша на сервере: `cd /var/www/tindermp && git pull origin main && pnpm install && pnpm db:migrate:deploy && pnpm build` (или `bash scripts/deploy-pull-build.sh`).
+
 ## 1) Clone and prepare env
 
 ```bash
 cd /var/www
-git clone <your-repo-url> match-app
-cd match-app
+git clone https://github.com/alantsoff/tindermp.git tindermp
+cd tindermp
 cp apps/api/.env.example apps/api/.env
 cp apps/web/.env.example apps/web/.env.local
 ```
@@ -18,7 +32,7 @@ Fill `apps/api/.env`:
 - `MATCH_JWT_SECRET`
 - `ADMIN_WEB_PASSWORD_HASH` (`node -e "require('bcrypt').hash(process.argv[1], 12).then(v=>console.log(v))" "your_password"`)
 - `MATCH_CORS_ORIGINS` (comma-separated origins)
-- `MATCH_UPLOADS_DIR` (например, `/var/www/match-app/apps/api/storage/match-media`)
+- `MATCH_UPLOADS_DIR` (например, `/var/www/tindermp/apps/api/storage/match-media`)
 
 Fill `apps/web/.env.local`:
 - `NEXT_PUBLIC_API_URL` (for browser requests, usually `https://your-domain`)

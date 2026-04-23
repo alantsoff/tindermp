@@ -1,20 +1,52 @@
 'use client';
 
 import { useParams } from 'next/navigation';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { matchAdminApi } from '../../_lib/api';
 import { useAdminUser } from '../../_lib/queries';
 import { MARKETPLACE_LABELS, WORK_FORMAT_LABELS } from '../../../../m/_lib/labels';
 
+function profileIdFromParams(raw: string | string[] | undefined): string {
+  if (raw == null) return '';
+  const s = Array.isArray(raw) ? raw[0] : raw;
+  try {
+    return decodeURIComponent(s);
+  } catch {
+    return s;
+  }
+}
+
 export default function MatchAdminUserDetailsPage() {
   const params = useParams<{ profileId: string }>();
-  const profileId = params.profileId;
-  const { data, isLoading, refetch } = useAdminUser(profileId);
+  const profileId = useMemo(() => profileIdFromParams(params?.profileId), [params?.profileId]);
+  const { data, isLoading, isError, error, refetch } = useAdminUser(profileId);
   const [reason, setReason] = useState('');
   const [running, setRunning] = useState(false);
 
+  if (!profileId) {
+    return <div className="text-sm text-zinc-500">Некорректная ссылка (нет profileId в URL).</div>;
+  }
   if (isLoading) return <div className="text-sm text-zinc-500">Загрузка карточки...</div>;
-  if (!data) return <div className="text-sm text-zinc-500">Профиль не найден</div>;
+  if (isError) {
+    return (
+      <div className="space-y-2 text-sm">
+        <p className="text-red-300">Не удалось загрузить профиль: {error instanceof Error ? error.message : 'ошибка'}</p>
+        <p className="text-zinc-500">
+          Проверь, что в <code className="text-zinc-400">next.config</code> есть rewrite{' '}
+          <code className="text-zinc-400">/match-admin</code> → API и задан{' '}
+          <code className="text-zinc-400">NEXT_INTERNAL_API_URL</code> на сервере веба.
+        </p>
+        <button
+          type="button"
+          className="rounded border border-zinc-600 px-2 py-1 text-xs"
+          onClick={() => void refetch()}
+        >
+          Повторить
+        </button>
+      </div>
+    );
+  }
+  if (!data) return <div className="text-sm text-zinc-500">Профиль не найден (пустой ответ API).</div>;
 
   const payload = data as {
     profile: {

@@ -25,6 +25,10 @@ const nextConfig: NextConfig = {
         destination: `${apiBase}/match-api/:path*`,
       },
       {
+        source: '/match-admin/:path*',
+        destination: `${apiBase}/match-admin/:path*`,
+      },
+      {
         source: '/match-media/:path*',
         destination: `${apiBase}/match-media/:path*`,
       },

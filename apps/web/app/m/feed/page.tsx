@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ActionBar } from '../_components/ActionBar';
 import { MatchModal } from '../_components/MatchModal';
@@ -39,13 +39,10 @@ export default function MatchFeedPage() {
   const {
     feed,
     setFeed,
-    appendFeed,
-    popFeedTop,
     matchModal,
     showMatchModal,
     closeMatchModal,
   } = useMatchStore();
-  const lastSeenPageCountRef = useRef(0);
   const [toast, setToast] = useState<string | null>(null);
   const [dismissedAutoResetAt, setDismissedAutoResetAt] = useState<string | null>(null);
   const [openedProfile, setOpenedProfile] = useState<FeedCard | null>(null);
@@ -86,27 +83,25 @@ export default function MatchFeedPage() {
     setShowTutorial(false);
   };
 
+  // Всегда выводим zustand из кэша infinite query (после свайпа кэш чистится в
+  // useSwipeMutation). Раньше реф lastSeen сбрасывался при ремаунте и заливал
+  // устаревший pages[0] — свайпнутые карточки «возвращались».
   useEffect(() => {
-    if (!feedData) return;
-    const pages = feedData.pages;
-    if (pages.length < lastSeenPageCountRef.current) {
-      lastSeenPageCountRef.current = 0;
-      setFeed([]);
-    }
-    if (pages.length === 0) {
-      lastSeenPageCountRef.current = 0;
+    if (!feedData?.pages.length) {
+      if (feedData && feedData.pages.length === 0) setFeed([]);
       return;
     }
-    if (pages.length === 1 && lastSeenPageCountRef.current === 0) {
-      setFeed(pages[0].items);
-    } else if (pages.length > lastSeenPageCountRef.current) {
-      const newPages = pages.slice(lastSeenPageCountRef.current);
-      for (const p of newPages) {
-        appendFeed(p.items);
+    const seen = new Set<string>();
+    const merged: FeedCard[] = [];
+    for (const p of feedData.pages) {
+      for (const c of p.items) {
+        if (seen.has(c.id)) continue;
+        seen.add(c.id);
+        merged.push(c);
       }
     }
-    lastSeenPageCountRef.current = pages.length;
-  }, [feedData, setFeed, appendFeed]);
+    setFeed(merged);
+  }, [feedData, setFeed]);
 
   useEffect(() => {
     if (feed.length > 3) return;
@@ -180,7 +175,6 @@ export default function MatchFeedPage() {
         toProfileId: topCard.id,
         direction,
       });
-      popFeedTop();
       if (direction === 'LIKE') hapticNotification('success');
       if (direction === 'PASS') hapticNotification('warning');
       if (result.matched && result.partner && result.pairId) {

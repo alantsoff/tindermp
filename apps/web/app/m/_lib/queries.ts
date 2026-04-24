@@ -1,8 +1,15 @@
 'use client';
 
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  type InfiniteData,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import type { FeedPage } from './api';
 import { FavoriteItem, matchApi } from './api';
+import { useMatchStore } from './store';
 
 export const matchKeys = {
   me: ['match', 'me'] as const,
@@ -44,11 +51,28 @@ export function useSwipeMutation() {
   return useMutation({
     mutationFn: ({ toProfileId, direction }: { toProfileId: string; direction: 'LIKE' | 'PASS' }) =>
       matchApi.swipe(toProfileId, direction),
-    onSuccess: () => {
+    onSuccess: (_data, { toProfileId }) => {
+      qc.setQueriesData<InfiniteData<FeedPage>>(
+        { queryKey: matchKeys.feed },
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            pages: old.pages.map((page) => ({
+              ...page,
+              items: page.items.filter((item) => item.id !== toProfileId),
+            })),
+          };
+        },
+      );
+      useMatchStore
+        .getState()
+        .setFeed(useMatchStore.getState().feed.filter((c) => c.id !== toProfileId));
       void qc.invalidateQueries({ queryKey: matchKeys.swipeResetPreview });
       void qc.invalidateQueries({ queryKey: matchKeys.me });
       void qc.invalidateQueries({ queryKey: matchKeys.matches });
       void qc.invalidateQueries({ queryKey: matchKeys.favorites });
+      void qc.invalidateQueries({ queryKey: matchKeys.feed });
     },
   });
 }

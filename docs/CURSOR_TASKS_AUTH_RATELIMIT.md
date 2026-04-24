@@ -13,6 +13,7 @@
 5. **Invite-only был fail-open.** На проде `MATCH_INVITE_ONLY` не задана → регистрации шли без инвайта. Это главная причина жалобы «проходят без инвайта».
 6. **Admin `/match-admin/users` падал 500** на любом невалидном значении `role`/`workFormat`/`marketplace` — Prisma-enum, а в UI стоял свободный `<input>`.
 7. **Dev-bypass создавал профиль в prod** при включённом `MATCH_DEV_AUTH_BYPASS_IN_PRODUCTION=1`, минуя invite-only. Штатные bypass'ы (admins / usernames) работали молча, без аудита.
+8. **🚨 Регрессия после правки 0.3:** DTO-валидатор на `inviteCode` остался со строгой длиной `@Length(9, 9)`, из-за чего новые 11-символьные коды `XXXXX-XXXXX` блокировались валидатором ещё до проверки в БД. Пользователи видели `400 inviteCode must be shorter than or equal to 9 characters` и не могли зарегистрироваться.
 
 ---
 
@@ -100,6 +101,41 @@ NODE_ENV=production invite-only=ON dev-bypass=off dev-bypass-in-prod=off admins=
 
 **Тесты на все пути.** `apps/api/src/modules/match/invite-enforcement.spec.ts` — **15** `it()` (в т.ч. bypass-username + код, два сценария апдейта профиля). Покрытие: без кода / невалид / revoked / used / валид / нормализация / admin + username bypass / апдейт existing / идемпотентность / fail-safe / invite-only OFF.
 
+### 0.9 🚨 Критический фикс: DTO блокировал новые 11-символьные коды
+
+**Проблема.** После увеличения энтропии (0.3) генератор выдавал коды `XXXXX-XXXXX` (11 символов с дефисом), но валидатор в DTO оставался `@Length(9, 9)` — строго 9 символов. Пользователи с новыми кодами получали `400 Bad Request: inviteCode must be shorter than or equal to 9 characters` и не могли зарегистрироваться.
+
+**Файл:** `apps/api/src/modules/match/dto/upsert-profile.dto.ts`
+
+```ts
+// ДО:
+@IsOptional()
+@IsString()
+@MaxLength(64)
+@Length(9, 9)               // ← блокирует новые коды
+inviteCode?: string;
+
+// ПОСЛЕ:
+@IsOptional()
+@IsString()
+@Length(9, 11)              // ← принимает и XXXX-XXXX, и XXXXX-XXXXX
+@Matches(/^(?:[A-Z2-9]{4}-[A-Z2-9]{4}|[A-Z2-9]{5}-[A-Z2-9]{5})$/i, {
+  message: 'inviteCode must be XXXX-XXXX or XXXXX-XXXXX',
+})
+inviteCode?: string;
+```
+
+**Регрессионные тесты в `invite-enforcement.spec.ts`:**
+```
+принимает легаси-формат 4-4 (9 символов с дефисом)
+принимает новый формат 5-5 (11 символов с дефисом)
+DTO: отклоняет inviteCode без дефиса (длина 10 — не 4-4 и не 5-5)
+```
+
+Теперь число `it()` в этом файле — **17** (в т.ч. проверка `UpsertProfileDto` на неверный шаблон кода).
+
+**Инвариант:** не возвращай `@Length(9, 9)`. Если когда-нибудь решишь ротировать формат (например, 6-6), обнови и `INVITE_CODE_LENGTH`, и `@Length`/`@Matches` одновременно. Регрессионные тесты поймают рассинхронизацию.
+
 ---
 
 ## P1 — install и прогон
@@ -148,6 +184,7 @@ git add apps/api/package.json \
         apps/api/src/modules/match/match-maintenance.service.ts \
         apps/api/src/modules/match/profile.service.ts \
         apps/api/src/modules/match/invite-enforcement.spec.ts \
+        apps/api/src/modules/match/dto/upsert-profile.dto.ts \
         apps/api/src/modules/match-admin/match-admin.controller.ts \
         apps/api/src/modules/match-admin/match-admin.service.ts \
         apps/web/app/m/_lib/api.ts \
@@ -322,6 +359,21 @@ curl -s -w '\n%{http_code}\n' \
 
 Скопировать initData из DevTools, подождать 16 минут, `POST /match-api/auth` → `401 Telegram initData has expired`.
 
+### 5.3a 🚨 DTO принимает новые 11-символьные коды (регрессия 0.9)
+
+Смоук с 11-символьным кодом — должен проходить валидатор DTO и упираться только в реальную проверку кода в БД:
+
+```bash
+curl -s -w '\n%{http_code}\n' \
+  -X POST https://match.example.com/match-api/profile \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"role":"SELLER","displayName":"Test","inviteCode":"ABCDE-FGHJK"}'
+```
+Ожидание: **НЕ** `400 inviteCode must be shorter than or equal to 9 characters`. Может быть `400 invite_invalid` (код не существует) или `201` (существует) — обе реакции означают, что DTO пропустил.
+
+Аналогично с легаси-форматом `ABCD-EFGH` (9 символов) — тоже должен пройти DTO.
+
 ### 5.3 Rate-limit на /profile
 
 ```bash
@@ -367,12 +419,13 @@ ORDER BY "createdAt" DESC LIMIT 20;
 ## Что прислать после выполнения
 
 1. Хеш коммита(ов) или ссылка на PR.
-2. Вывод `pnpm --filter @match/api run test` с зелёным `invite-enforcement.spec.ts` (15 кейсов) и `invite.service.spec.ts` (3 кейса).
+2. Вывод `pnpm --filter @match/api run test` с зелёным `invite-enforcement.spec.ts` (**17 кейсов** — 15 исходных + 2 регрессионных на формат) и `invite.service.spec.ts` (3 кейса).
 3. Результат smoke P3 (invite_required до и после хот-фикса env).
 4. Строка `[Bootstrap]` из `pm2 logs` после P4.
-5. Результат smoke P5.3 (6-й ответ = 429).
-6. SQL-вывод P5.4 (несколько кодов `len = 11`).
-7. Скриншоты P5.6 (две разные UX-ошибки).
+5. Результат smoke P5.3a (11-символьный код пропустил DTO, не 400 на длину).
+6. Результат smoke P5.3 (6-й ответ = 429).
+7. SQL-вывод P5.4 (несколько кодов `len = 11`).
+8. Скриншоты P5.6 (две разные UX-ошибки).
 
 ---
 
@@ -390,6 +443,7 @@ apps/api/src/modules/match/match.utils.ts
 apps/api/src/modules/match/match-maintenance.service.ts
 apps/api/src/modules/match/profile.service.ts
 apps/api/src/modules/match/invite-enforcement.spec.ts          [NEW]
+apps/api/src/modules/match/dto/upsert-profile.dto.ts           [регрессия 0.9]
 apps/api/src/modules/match-admin/match-admin.controller.ts
 apps/api/src/modules/match-admin/match-admin.service.ts
 apps/web/app/m/_lib/api.ts

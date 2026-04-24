@@ -153,10 +153,16 @@ export class UpsertProfileDto {
   @MaxLength(64)
   telegramContact?: string;
 
+  // Принимаем оба формата:
+  //   - legacy 4-4 (длина 9, XXXX-XXXX) — уже выданные коды в БД
+  //   - новый 5-5 (длина 11, XXXXX-XXXXX) — генерируются с апреля 2026
+  // Строгая проверка alphabet/format — в Matches-регулярке ниже.
   @IsOptional()
   @IsString()
-  @MaxLength(64)
-  @Length(9, 9)
+  @Length(9, 11)
+  @Matches(/^(?:[A-Z2-9]{4}-[A-Z2-9]{4}|[A-Z2-9]{5}-[A-Z2-9]{5})$/i, {
+    message: 'inviteCode must be XXXX-XXXX or XXXXX-XXXXX',
+  })
   inviteCode?: string;
 
   @IsOptional()

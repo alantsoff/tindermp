@@ -335,7 +335,11 @@ export class MatchAdminService {
         swipes: number;
         matches: number;
       }> = [];
-      for (let t = rangeStart.getTime(); t <= rangeEnd.getTime(); t += 86400_000) {
+      for (
+        let t = rangeStart.getTime();
+        t <= rangeEnd.getTime();
+        t += 86400_000
+      ) {
         const key = new Date(t).toISOString().slice(0, 10);
         points.push(
           byDay.get(key) ?? {

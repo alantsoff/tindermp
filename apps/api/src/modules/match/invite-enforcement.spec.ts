@@ -16,6 +16,9 @@ import {
   ConflictException,
   Logger,
 } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
+import { UpsertProfileDto } from './dto/upsert-profile.dto';
 import { ProfileService } from './profile.service';
 import { InviteService } from './invite.service';
 import { isInviteOnlyModeEnabled } from './match.utils';
@@ -203,6 +206,49 @@ describe('ProfileService.upsertProfile — invite-only enforcement', () => {
       service.upsertProfile('u-1', { ...BASE_DTO, inviteCode: 'ABCDE-FGHJK' }),
     ).resolves.toBeDefined();
     expect(inviteService.redeemForProfileCreation).toHaveBeenCalledTimes(1);
+    expect(inviteService.redeemForProfileCreation).toHaveBeenCalledWith(
+      expect.anything(),
+      'ABCDE-FGHJK',
+      'new-profile-id',
+    );
+  });
+
+  it('принимает легаси-формат 4-4 (9 символов с дефисом)', async () => {
+    // Регрессионный тест: до фикса DTO стоял @Length(9, 9) + генератор
+    // выдавал 11 символов → новые коды блокировались валидатором. Теперь
+    // обе длины должны проходить.
+    process.env.MATCH_INVITE_ONLY = '1';
+    const { service, inviteService } = buildService();
+
+    await expect(
+      service.upsertProfile('u-1', { ...BASE_DTO, inviteCode: 'ABCD-EFGH' }),
+    ).resolves.toBeDefined();
+    expect(inviteService.redeemForProfileCreation).toHaveBeenCalledWith(
+      expect.anything(),
+      'ABCD-EFGH',
+      'new-profile-id',
+    );
+  });
+
+  it('DTO: отклоняет inviteCode без дефиса (длина 10 — не 4-4 и не 5-5)', async () => {
+    const dto = plainToInstance(UpsertProfileDto, {
+      role: 'SELLER',
+      displayName: 'Test',
+      niches: ['одежда'],
+      skills: ['unit'],
+      inviteCode: 'ABCDEFGHIJ',
+    });
+    const errors = await validate(dto);
+    expect(errors.some((e) => e.property === 'inviteCode')).toBe(true);
+  });
+
+  it('принимает новый формат 5-5 (11 символов с дефисом)', async () => {
+    process.env.MATCH_INVITE_ONLY = '1';
+    const { service, inviteService } = buildService();
+
+    await expect(
+      service.upsertProfile('u-1', { ...BASE_DTO, inviteCode: 'ABCDE-FGHJK' }),
+    ).resolves.toBeDefined();
     expect(inviteService.redeemForProfileCreation).toHaveBeenCalledWith(
       expect.anything(),
       'ABCDE-FGHJK',

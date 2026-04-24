@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import {
   useAdminInvites,
@@ -34,6 +35,14 @@ export default function MatchAdminInvitesPage() {
 
   return (
     <div className="space-y-4">
+      <div>
+        <h2 className="text-lg font-semibold">Инвайт-коды</h2>
+        <p className="mt-1 text-sm text-zinc-400">
+          Владелец кода (owner) — кто выпустил приглашение. Used by — профиль, который активировал
+          код. В ячейках — ссылка в карточку пользователя.
+        </p>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-3">
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
           <h3 className="font-semibold">A. Выпустить себе</h3>
@@ -199,8 +208,8 @@ export default function MatchAdminInvitesPage() {
                 createdAt: string;
                 usedAt?: string | null;
                 revokedAt?: string | null;
-                owner?: { displayName?: string | null } | null;
-                usedBy?: { displayName?: string | null } | null;
+                owner?: { id: string; displayName?: string | null; role?: string } | null;
+                usedBy?: { id: string; displayName?: string | null; role?: string } | null;
               };
               const statusText = item.revokedAt
                 ? 'revoked'
@@ -210,8 +219,30 @@ export default function MatchAdminInvitesPage() {
               return (
                 <tr key={item.id} className="border-t border-zinc-800">
                   <td className="px-3 py-2 font-mono">{item.code}</td>
-                  <td className="px-3 py-2">{item.owner?.displayName ?? '—'}</td>
-                  <td className="px-3 py-2">{item.usedBy?.displayName ?? '—'}</td>
+                  <td className="px-3 py-2">
+                    {item.owner?.id ? (
+                      <Link
+                        className="text-violet-300 hover:text-violet-200"
+                        href={`/admin/match/users/${encodeURIComponent(item.owner.id)}`}
+                      >
+                        {item.owner?.displayName ?? item.owner.id}
+                      </Link>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                  <td className="px-3 py-2">
+                    {item.usedBy?.id ? (
+                      <Link
+                        className="text-violet-300 hover:text-violet-200"
+                        href={`/admin/match/users/${encodeURIComponent(item.usedBy.id)}`}
+                      >
+                        {item.usedBy?.displayName ?? item.usedBy.id}
+                      </Link>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
                   <td className="px-3 py-2">{item.source}</td>
                   <td className="px-3 py-2">{statusText}</td>
                   <td className="px-3 py-2">{new Date(item.createdAt).toLocaleString('ru-RU')}</td>

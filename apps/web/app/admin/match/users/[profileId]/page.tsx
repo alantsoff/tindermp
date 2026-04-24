@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { matchAdminApi } from '../../_lib/api';
@@ -59,10 +60,21 @@ export default function MatchAdminUserDetailsPage() {
       user?: { telegramId?: string | null; telegramUsername?: string | null } | null;
       spamSignal?: unknown;
       invitesIssued?: unknown;
+      /** Код, которым зарегистрировались; owner — кто этот код выпустил (пригласивший) */
+      invitedBy?: {
+        id: string;
+        code: string;
+        source: string;
+        createdAt: string;
+        usedAt: string | null;
+        owner: { id: string; displayName: string; role: string } | null;
+      } | null;
     };
     events?: unknown;
   };
   const profile = payload.profile;
+  const inviter = profile.invitedBy?.owner;
+  const usedInvite = profile.invitedBy;
 
   const run = async (fn: () => Promise<unknown>) => {
     setRunning(true);
@@ -136,6 +148,51 @@ export default function MatchAdminUserDetailsPage() {
           placeholder="Причина модерационного действия (обязательно)"
           className="mt-3 min-h-20 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
         />
+      </div>
+
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+        <h3 className="font-semibold">Кто пригласил (по инвайту)</h3>
+        {usedInvite ? (
+          <div className="mt-3 space-y-2 text-sm text-zinc-300">
+            <p>
+              <span className="text-zinc-500">Код: </span>
+              <span className="font-mono">{usedInvite.code}</span>
+            </p>
+            <p>
+              <span className="text-zinc-500">Источник выдачи: </span>
+              {usedInvite.source}
+            </p>
+            {usedInvite.usedAt ? (
+              <p>
+                <span className="text-zinc-500">Активирован: </span>
+                {new Date(usedInvite.usedAt).toLocaleString('ru-RU')}
+              </p>
+            ) : null}
+            {inviter ? (
+              <p>
+                <span className="text-zinc-500">Пригласил: </span>
+                <Link
+                  href={`/admin/match/users/${encodeURIComponent(inviter.id)}`}
+                  className="font-medium text-violet-300 hover:text-violet-200"
+                >
+                  {inviter.displayName}
+                </Link>
+                <span className="text-zinc-500"> ({inviter.role})</span>
+                <span className="ml-2 font-mono text-xs text-zinc-500">{inviter.id}</span>
+              </p>
+            ) : (
+              <p className="text-amber-200/90">
+                Владелец кода не привязан к профилю (detached / системный сценарий) — в дереве
+                приглашений смотрите по коду.
+              </p>
+            )}
+          </div>
+        ) : (
+          <p className="mt-3 text-sm text-zinc-400">
+            Нет записи об использовании инвайт-кода: регистрация до внедрения цепочки, обход
+            админа, или данные ещё не сопоставлены.
+          </p>
+        )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">

@@ -17,9 +17,18 @@ export class EventLoggerService {
 
   constructor(private readonly prisma: PrismaService) {}
 
-  async log(input: EventLogInput): Promise<void> {
+  /**
+   * Если вызывается из `prisma.$transaction`, передайте `tx`, иначе вставка
+   * в `MatchEventLog` идёт отдельным подключением и не видит незакоммиченный
+   * `MatchProfile` → FK `MatchEventLog_profileId_fkey`.
+   */
+  async log(
+    input: EventLogInput,
+    tx?: Prisma.TransactionClient,
+  ): Promise<void> {
+    const db = tx ?? this.prisma;
     try {
-      await this.prisma.matchEventLog.create({
+      await db.matchEventLog.create({
         data: {
           profileId: input.profileId ?? null,
           userId: input.userId ?? null,

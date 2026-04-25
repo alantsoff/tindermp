@@ -24,13 +24,19 @@ export class InviteService {
     private readonly eventLogger: EventLoggerService,
   ) {}
 
+  /**
+   * Неуспешный redeem вызывается до commit профиля или перед откатом транзакции.
+   * `profileId` в логе должен быть null — иначе отдельное подключение Prisma не
+   * видит строку `MatchProfile`, либо строка откатывается вместе с tx.
+   * Идентификатор профиля — только в payload (`attemptedBy`).
+   */
   private logRedeemFailure(
     code: string,
     newProfileId: string,
     reason: 'invalid' | 'revoked' | 'already_used',
   ): void {
     void this.eventLogger.log({
-      profileId: newProfileId,
+      profileId: null,
       type: 'INVITE_REDEEMED',
       payload: {
         code,
@@ -62,16 +68,19 @@ export class InviteService {
           created = true;
           break;
         } catch {
-          void this.eventLogger.log({
-            profileId: item.ownerProfileId ?? null,
-            type: 'INVITE_ISSUED',
-            payload: {
-              action: 'invite_code_collision',
-              ownerProfileId: item.ownerProfileId,
-              source: item.source,
-              attempt: i + 1,
+          await this.eventLogger.log(
+            {
+              profileId: item.ownerProfileId ?? null,
+              type: 'INVITE_ISSUED',
+              payload: {
+                action: 'invite_code_collision',
+                ownerProfileId: item.ownerProfileId,
+                source: item.source,
+                attempt: i + 1,
+              },
             },
-          });
+            tx,
+          );
         }
       }
       if (!created) {
@@ -185,11 +194,14 @@ export class InviteService {
       throw err;
     }
 
-    void this.eventLogger.log({
-      profileId: newProfileId,
-      type: 'INVITE_REDEEMED',
-      payload: { code },
-    });
+    await this.eventLogger.log(
+      {
+        profileId: newProfileId,
+        type: 'INVITE_REDEEMED',
+        payload: { code },
+      },
+      tx,
+    );
   }
 
   async issueForProfile(
@@ -207,25 +219,28 @@ export class InviteService {
         Math.min(count, INVITE_CONFIG.MAX_BALANCE - available),
       );
       if (allowed <= 0) return [];
-      return this.createCodes(
+      const issued = await this.createCodes(
         tx,
         Array.from({ length: allowed }).map(() => ({
           ownerProfileId: profileId,
           source,
         })),
       );
+      for (const row of issued) {
+        await this.eventLogger.log(
+          {
+            profileId,
+            type: 'INVITE_ISSUED',
+            payload: { code: row.code, source },
+          },
+          tx,
+        );
+      }
+      return issued;
     };
-    const issued = txClient
+    return txClient
       ? await run(txClient)
       : await this.prisma.$transaction(run);
-    for (const row of issued) {
-      void this.eventLogger.log({
-        profileId,
-        type: 'INVITE_ISSUED',
-        payload: { code: row.code, source },
-      });
-    }
-    return issued;
   }
 
   async issueAdminFree(count: number, ownerProfileId?: string | null) {

@@ -400,17 +400,23 @@ export class ProfileService {
           'user',
           tx,
         );
-        void this.eventLogger.log({
-          profileId: row.id,
-          userId,
-          type: 'PROFILE_CREATED',
-        });
+        await this.eventLogger.log(
+          {
+            profileId: row.id,
+            userId,
+            type: 'PROFILE_CREATED',
+          },
+          tx,
+        );
       } else {
-        void this.eventLogger.log({
-          profileId: row.id,
-          userId,
-          type: 'PROFILE_UPDATED',
-        });
+        await this.eventLogger.log(
+          {
+            profileId: row.id,
+            userId,
+            type: 'PROFILE_UPDATED',
+          },
+          tx,
+        );
       }
 
       return row;

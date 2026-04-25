@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  hasTelegramUserAgent,
   hasTelegramWebApp,
   isLocalAuthBypassEnabled,
   waitForInitData,
@@ -16,13 +17,18 @@ const localSwipedIds = new Set<string>();
 // сообщения в зависимости от причины (см. MatchBootstrap).
 export const AUTH_ERROR_NO_TELEGRAM = 'auth_no_telegram';
 export const AUTH_ERROR_INIT_DATA_LOST = 'auth_init_data_lost';
+// Юзер ВНУТРИ Telegram (UA совпадает), но JS SDK не загрузился —
+// типично при блокировке telegram.org прокси/VPN/ISP.
+export const AUTH_ERROR_TELEGRAM_SDK_BLOCKED = 'auth_telegram_sdk_blocked';
+
+export type MatchAuthErrorCode =
+  | typeof AUTH_ERROR_NO_TELEGRAM
+  | typeof AUTH_ERROR_INIT_DATA_LOST
+  | typeof AUTH_ERROR_TELEGRAM_SDK_BLOCKED;
 
 export class MatchAuthError extends Error {
-  readonly code: typeof AUTH_ERROR_NO_TELEGRAM | typeof AUTH_ERROR_INIT_DATA_LOST;
-  constructor(
-    code: typeof AUTH_ERROR_NO_TELEGRAM | typeof AUTH_ERROR_INIT_DATA_LOST,
-    message: string,
-  ) {
+  readonly code: MatchAuthErrorCode;
+  constructor(code: MatchAuthErrorCode, message: string) {
     super(message);
     this.code = code;
     this.name = 'MatchAuthError';
@@ -70,19 +76,28 @@ async function ensureTelegramAuthToken(): Promise<void> {
       setMatchToken(LOCAL_DEV_TOKEN);
       return;
     }
-    // waitForInitData опрашивает window.Telegram.WebApp до 5 секунд —
-    // защита от гонки с Telegram SDK, особенно при повторной авторизации
-    // после 401 (если мы попали сюда из matchFetch при истекшем токене).
-    const initData = await waitForInitData(5_000);
+    // waitForInitData опрашивает window.Telegram.WebApp до 10 секунд —
+    // защита от гонки с Telegram SDK (особенно при повторной авторизации
+    // после 401 и на медленных сетях / прокси).
+    const initData = await waitForInitData(10_000);
     if (!initData) {
-      // Различаем две причины отсутствия initData:
-      //  - Telegram SDK вообще не инжектил WebApp → мини-апп открыт не из
-      //    Telegram (браузер / превью бота / устаревший клиент).
-      //  - WebApp есть, но initData пустая → сессия утеряна, нужен перезапуск.
+      // Различаем три причины отсутствия initData:
+      //  1. WebApp есть, но initData пустая → сессия утеряна, нужен
+      //     перезапуск мини-аппа.
+      //  2. WebApp нет, но UA говорит, что мы внутри Telegram → JS SDK
+      //     не загрузился (вероятно, прокси/VPN режут telegram.org).
+      //  3. WebApp нет и UA не Telegram → юзер реально не в Telegram
+      //     (браузер / превью бота / старый клиент).
       if (hasTelegramWebApp()) {
         throw new MatchAuthError(
           AUTH_ERROR_INIT_DATA_LOST,
           'Сессия истекла. Закройте и откройте мини-приложение заново.',
+        );
+      }
+      if (hasTelegramUserAgent()) {
+        throw new MatchAuthError(
+          AUTH_ERROR_TELEGRAM_SDK_BLOCKED,
+          'Не удалось загрузить компоненты Telegram. Возможно, мешает VPN или прокси.',
         );
       }
       throw new MatchAuthError(

@@ -8,10 +8,12 @@ import {
   MatchAuthError,
   AUTH_ERROR_NO_TELEGRAM,
   AUTH_ERROR_INIT_DATA_LOST,
+  AUTH_ERROR_TELEGRAM_SDK_BLOCKED,
 } from '../_lib/api';
 import {
   getInviteCodeFromStartParam,
   getTelegramStartParam,
+  hasTelegramUserAgent,
   hasTelegramWebApp,
   setupMiniApp,
   waitForInitData,
@@ -32,15 +34,30 @@ function classifyAuthError(e: unknown): AuthFailure {
         canReload: true,
       };
     }
+    if (e.code === AUTH_ERROR_TELEGRAM_SDK_BLOCKED) {
+      return {
+        title: 'Не удалось загрузить компоненты Telegram',
+        hint: 'Скорее всего, мешает VPN, прокси или фильтр оператора. Попробуйте отключить их и нажать «Перезагрузить». Если не помогает — переключитесь на мобильный интернет.',
+        canReload: true,
+      };
+    }
     return {
       title: 'Запуск не из Telegram',
       hint: 'Откройте приложение через бота @tindermp_bot — в обычном браузере авторизация невозможна.',
       canReload: false,
     };
   }
-  // Fallback: если initData есть, но отвалилось что-то внутри auth/me,
-  // разделяем "сеть/сервер" и "телеграм" по наличию WebApp.
+  // Fallback для не-MatchAuthError ошибок (auth/me/network).
+  // Если SDK не загружен, но юзер внутри Telegram-клиента — это про
+  // блокировку CDN, а не про неправильный запуск.
   if (!hasTelegramWebApp()) {
+    if (hasTelegramUserAgent()) {
+      return {
+        title: 'Не удалось загрузить компоненты Telegram',
+        hint: 'Скорее всего, мешает VPN или прокси. Попробуйте отключить и перезагрузить.',
+        canReload: true,
+      };
+    }
     return {
       title: 'Запуск не из Telegram',
       hint: 'Откройте приложение через бота @tindermp_bot.',
@@ -66,15 +83,18 @@ export function MatchBootstrap() {
 
     const run = async () => {
       try {
-        // Ждём initData до 5 секунд — Telegram SDK инжектит её после ready().
-        const initData = await waitForInitData(5_000);
+        // Ждём initData до 10 секунд — на медленных мобильных сетях и
+        // через прокси Telegram SDK может загружаться 5+ секунд.
+        const initData = await waitForInitData(10_000);
         if (!initData) {
-          throw new MatchAuthError(
-            hasTelegramWebApp()
-              ? AUTH_ERROR_INIT_DATA_LOST
-              : AUTH_ERROR_NO_TELEGRAM,
-            'initData недоступна',
-          );
+          // Три ветки: SDK живой → INIT_DATA_LOST; SDK мёртв но мы в TG-UA
+          // → SDK_BLOCKED (вероятно прокси/VPN); иначе → NO_TELEGRAM.
+          let code: typeof AUTH_ERROR_INIT_DATA_LOST
+            | typeof AUTH_ERROR_TELEGRAM_SDK_BLOCKED
+            | typeof AUTH_ERROR_NO_TELEGRAM = AUTH_ERROR_NO_TELEGRAM;
+          if (hasTelegramWebApp()) code = AUTH_ERROR_INIT_DATA_LOST;
+          else if (hasTelegramUserAgent()) code = AUTH_ERROR_TELEGRAM_SDK_BLOCKED;
+          throw new MatchAuthError(code, 'initData недоступна');
         }
         const auth = await matchApi.auth(initData);
         setMatchToken(auth.token);

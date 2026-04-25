@@ -56,9 +56,13 @@ export function getInitDataForAuth(): string {
  * объект с небольшим шагом, пока не появится initData или не истечёт
  * таймаут. Используется и при первичной авторизации (MatchBootstrap),
  * и при повторной авторизации после 401 в matchFetch.
+ *
+ * Дефолт 10 секунд: 5 секунд оказывались мало для пользователей с
+ * прокси/VPN/медленным мобильным соединением — JS SDK не успевал
+ * подгрузиться, и они видели ложное «Запуск не из Telegram».
  */
 export async function waitForInitData(
-  timeoutMs = 5_000,
+  timeoutMs = 10_000,
   pollIntervalMs = 200,
 ): Promise<string> {
   const deadline = Date.now() + timeoutMs;
@@ -75,14 +79,36 @@ export async function waitForInitData(
 }
 
 /**
- * Различает: (a) мини-апп открыт НЕ из Telegram (браузер / превью /
- * старый клиент) — initData никогда не приходила; (b) initData была,
- * но в какой-то момент пропала (например, WebView перешёл в background
- * и клиент её не перевыпустил). Нужно для более точного UX-сообщения.
+ * Проверяет, что JS SDK Telegram-а подгрузился и инжектил
+ * `window.Telegram.WebApp`. Если false — SDK либо не загрузился
+ * (заблокирован прокси/CDN), либо мы вообще не в Telegram.
+ *
+ * Также помогает отличить: (a) initData никогда не приходила из Telegram;
+ * (b) initData была, но пропала (WebView в background и т.д.) — для UX
+ * это разные ветки на уровне вызывающего кода.
  */
 export function hasTelegramWebApp(): boolean {
   if (typeof window === 'undefined') return false;
   return Boolean(window.Telegram?.WebApp);
+}
+
+/**
+ * Эвристика: запущены ли мы внутри нативного Telegram WebView, даже
+ * если JS SDK ещё не загрузился. Telegram-клиенты добавляют в
+ * navigator.userAgent подстроку `Telegram` (на iOS/Android/Desktop).
+ *
+ * Используется для различения трёх сценариев:
+ *   - SDK загрузился, initData есть → всё ок.
+ *   - SDK не загрузился, но UA = Telegram → вероятно прокси/VPN режет
+ *     CDN telegram.org. Юзеру нужно сообщить именно это, не «откройте
+ *     через Telegram».
+ *   - SDK не загрузился и UA ≠ Telegram → юзер действительно открыл в
+ *     обычном браузере / превью бота / старом клиенте.
+ */
+export function hasTelegramUserAgent(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent ?? '';
+  return /Telegram|TgWeb|TelegramWebApp/i.test(ua);
 }
 
 export function getTelegramStartParam(): string {

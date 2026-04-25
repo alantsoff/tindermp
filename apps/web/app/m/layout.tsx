@@ -25,6 +25,27 @@ export default function MatchLayout({ children }: { children: ReactNode }) {
       className="relative min-h-[100dvh] text-ios-label"
       style={{ minHeight: 'var(--tg-viewport-stable-height, 100dvh)' }}
     >
+      {/*
+        Self-hosted Telegram WebApp SDK + CDN fallback.
+
+        Зачем self-host: некоторые юзерские прокси/VPN/ISP блокируют
+        telegram.org — внутри Telegram WebView SDK не загружается,
+        window.Telegram.WebApp не появляется, и юзер видит ложное
+        «Запуск не из Telegram» (см. apps/web/public/vendor/README.md).
+
+        Используем strategy="beforeInteractive" — Next.js встроит скрипт
+        в начало <head>, до hydration: это даёт SDK максимум времени
+        проинициализироваться к моменту первого рендера.
+
+        Второй <Script> с CDN — fallback. Если плейсхолдер ещё не заменён
+        на реальный файл (см. vendor/README.md), CDN всё равно подгрузит
+        SDK, и приложение будет работать как раньше. Если CDN заблокирован
+        — локальный файл (после замены плейсхолдера) спасёт юзера.
+      */}
+      <Script
+        src="/vendor/telegram-web-app.js"
+        strategy="beforeInteractive"
+      />
       <Script
         src="https://telegram.org/js/telegram-web-app.js"
         strategy="afterInteractive"

@@ -2,6 +2,7 @@ import { SwipeService } from './swipe.service';
 
 describe('SwipeService', () => {
   const eventLogger = { log: jest.fn() };
+  const notifications = { send: jest.fn().mockResolvedValue({ sent: false, reason: 'no_token' }) };
   const favoriteRows = [
     {
       id: 'sw-like-open',
@@ -193,7 +194,7 @@ describe('SwipeService', () => {
 
   describe('swipe/undo basics', () => {
     it('creates match on mutual like and returns partner payload', async () => {
-      const service = new SwipeService(prisma, eventLogger as any);
+      const service = new SwipeService(prisma, eventLogger as any, notifications as any);
       const result = await service.swipe('a', 'b', 'LIKE');
 
       expect(prisma.matchPair.upsert).toHaveBeenCalled();
@@ -203,7 +204,7 @@ describe('SwipeService', () => {
     });
 
     it('undo returns false when there is no swipe', async () => {
-      const service = new SwipeService(prisma, eventLogger as any);
+      const service = new SwipeService(prisma, eventLogger as any, notifications as any);
       const result = await service.undoLastSwipe('a');
 
       expect(result).toEqual({ undone: false });
@@ -212,7 +213,7 @@ describe('SwipeService', () => {
 
   describe('getFavorites', () => {
     it('returns unilateral likes, excludes mutual and pass, keeps super-like and availability', async () => {
-      const service = new SwipeService(prisma, eventLogger as any);
+      const service = new SwipeService(prisma, eventLogger as any, notifications as any);
       const result = await service.getFavorites('a');
 
       expect(prisma.matchSwipe.findMany).toHaveBeenCalledWith(
@@ -237,7 +238,7 @@ describe('SwipeService', () => {
 
   describe('removeFavorite', () => {
     it('removes a like swipe and returns removed count', async () => {
-      const service = new SwipeService(prisma, eventLogger as any);
+      const service = new SwipeService(prisma, eventLogger as any, notifications as any);
       prisma.matchSwipe.findUnique.mockResolvedValue({ direction: 'PASS' });
       prisma.matchSwipe.deleteMany.mockResolvedValue({ count: 1 });
 
@@ -246,7 +247,7 @@ describe('SwipeService', () => {
     });
 
     it('throws favorite_not_found when like swipe does not exist', async () => {
-      const service = new SwipeService(prisma, eventLogger as any);
+      const service = new SwipeService(prisma, eventLogger as any, notifications as any);
       prisma.matchSwipe.findUnique.mockResolvedValue(null);
       prisma.matchSwipe.deleteMany.mockResolvedValue({ count: 0 });
 
@@ -256,7 +257,7 @@ describe('SwipeService', () => {
     });
 
     it('throws favorite_is_match when partner already liked back', async () => {
-      const service = new SwipeService(prisma, eventLogger as any);
+      const service = new SwipeService(prisma, eventLogger as any, notifications as any);
       prisma.matchSwipe.findUnique.mockResolvedValue({ direction: 'LIKE' });
 
       await expect(service.removeFavorite('a', 'b')).rejects.toMatchObject({

@@ -6,6 +6,8 @@ import { ChevronLeft, Send } from 'lucide-react';
 import { Avatar } from '../../_components/Avatar';
 import { ChatBubble } from '../../_components/ChatBubble';
 import { ProfileDetailModal } from '../../_components/ProfileDetailModal';
+import { MATCH_ICEBREAKERS } from '../../_lib/icebreakers';
+import { hapticImpact } from '../../_lib/telegram';
 import {
   useMatchPartner,
   useMarkPairRead,
@@ -36,6 +38,15 @@ export default function MatchChatPage() {
   const partnerId = partner?.id ?? null;
   const partnerName = partner?.displayName?.trim() || 'Собеседник';
   const hasText = useMemo(() => text.trim().length > 0, [text]);
+  // Показываем icebreakers, пока ни один из участников не написал
+  // ничего «настоящего» (system-приветствия не считаются). Как только
+  // появляется первое user-сообщение — чипсы скрываются.
+  const showIcebreakers = useMemo(
+    () =>
+      !isLoading &&
+      (messages ?? []).filter((msg) => !msg.systemGenerated).length === 0,
+    [messages, isLoading],
+  );
   const lastMarkedMessageId = useRef<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -121,6 +132,33 @@ export default function MatchChatPage() {
             }
           />
         ))}
+        {showIcebreakers ? (
+          <div className="mt-2 px-2">
+            <p className="mb-2 px-1 text-[12px] text-[rgb(var(--ios-label-secondary)/0.65)]">
+              С чего начать разговор
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {MATCH_ICEBREAKERS.map((prompt) => (
+                <button
+                  key={prompt}
+                  type="button"
+                  onClick={() => {
+                    hapticImpact('light');
+                    setText(prompt);
+                  }}
+                  className="glass glass-edge rounded-full px-3.5 py-2 text-[13px] text-[rgb(var(--ios-label))] active:scale-[0.97]"
+                  style={{
+                    transitionDuration: 'var(--dur-base)',
+                    transitionTimingFunction: 'var(--ease-ios)',
+                    transitionProperty: 'transform, background-color, opacity',
+                  }}
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <form

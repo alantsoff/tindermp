@@ -1,10 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../prisma/prisma.service';
-import { sendTelegramMessage } from '../telegram/telegram-send';
 import { ActivityScoreService } from './activity-score.service';
 import { DEFAULTS } from './match.constants';
 import { InviteService } from './invite.service';
+import { NotificationService } from './notification.service';
 import { SwipeService } from './swipe.service';
 import {
   addDaysUtc,
@@ -24,24 +24,8 @@ export class MatchMaintenanceService {
     private readonly inviteService: InviteService,
     private readonly swipeService: SwipeService,
     private readonly activityScoreService: ActivityScoreService,
+    private readonly notifications: NotificationService,
   ) {}
-
-  private getBotToken(): string | null {
-    return process.env.MATCH_BOT_TOKEN?.trim() ?? null;
-  }
-
-  private getMiniAppUrl(): string | null {
-    return process.env.MATCH_MINIAPP_URL?.trim() ?? null;
-  }
-
-  private getAnyBotToken(): string | null {
-    return (
-      process.env.MATCH_BOT_TOKEN?.trim() ||
-      process.env.REALSKLADCHINA_BOT_TOKEN?.trim() ||
-      process.env.TELEGRAM_BOT_TOKEN?.trim() ||
-      null
-    );
-  }
 
   @Cron(CronExpression.EVERY_DAY_AT_4AM, { timeZone: 'Europe/Moscow' })
   async recalcLikeRateRecent() {
@@ -99,9 +83,6 @@ export class MatchMaintenanceService {
   @Cron('0 12 * * *', { timeZone: 'Europe/Moscow' })
   async sendDailyDigest() {
     if (!isFeatureEnabled(process.env.MATCH_FEATURE_DIGEST, true)) return;
-    const token = this.getBotToken();
-    const miniAppUrl = this.getMiniAppUrl();
-    if (!token || !miniAppUrl) return;
 
     const minFresh = getNumberEnv(
       process.env.MATCH_DIGEST_MIN_FRESH,
@@ -126,7 +107,7 @@ export class MatchMaintenanceService {
           },
         ],
       },
-      include: { user: { select: { telegramId: true } } },
+      select: { id: true },
       take: 500,
     });
 
@@ -150,18 +131,14 @@ export class MatchMaintenanceService {
       });
       if (freshCount < minFresh) continue;
 
-      await sendTelegramMessage(
-        token,
-        profile.user.telegramId,
-        `📬 В вашей ленте ${freshCount} новых подходящих человека за сутки.`,
-        {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: 'Открыть Match', web_app: { url: miniAppUrl } }],
-            ],
-          },
-        },
-      );
+      // NotificationService сам пропустит, если notifyDigest=false или
+      // master notificationsMuted=true. Поле lastDigestSentAt обновляем
+      // в любом случае — иначе крон будет дёргать одного и того же
+      // оптаут-юзера каждые сутки и забивать NOTIFICATION_THROTTLED.
+      await this.notifications.send(profile.id, 'digest', {
+        text: `📬 В вашей ленте ${freshCount} новых подходящих человека за сутки.`,
+        meta: { freshCount },
+      });
       await this.prisma.matchProfile.update({
         where: { id: profile.id },
         data: { lastDigestSentAt: new Date() },
@@ -173,9 +150,6 @@ export class MatchMaintenanceService {
   async sendPendingLikesPing() {
     if (!isFeatureEnabled(process.env.MATCH_FEATURE_PENDING_LIKES, true))
       return;
-    const token = this.getBotToken();
-    const miniAppUrl = this.getMiniAppUrl();
-    if (!token || !miniAppUrl) return;
 
     const now = new Date();
     const since6h = new Date(now.getTime() - 6 * 60 * 60 * 1000);
@@ -194,7 +168,7 @@ export class MatchMaintenanceService {
           },
         ],
       },
-      include: { user: { select: { telegramId: true } } },
+      select: { id: true },
       take: 1000,
     });
 
@@ -214,18 +188,10 @@ export class MatchMaintenanceService {
         },
       });
       if (count < 3) continue;
-      await sendTelegramMessage(
-        token,
-        profile.user.telegramId,
-        `💌 Вас лайкнули ${count} человек. Откройте ленту, возможно это матч.`,
-        {
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: 'Открыть Match', web_app: { url: miniAppUrl } }],
-            ],
-          },
-        },
-      );
+      await this.notifications.send(profile.id, 'pending_likes', {
+        text: `💌 Вас лайкнули ${count} человек. Откройте ленту, возможно это матч.`,
+        meta: { count },
+      });
       await this.prisma.matchProfile.update({
         where: { id: profile.id },
         data: { lastPendingLikesPingAt: new Date() },
@@ -260,7 +226,7 @@ export class MatchMaintenanceService {
           { lastSwipeResetAt: { lte: cooldownThreshold } },
         ],
       },
-      include: { user: { select: { telegramId: true } } },
+      select: { id: true },
       take: 5000,
     });
 
@@ -274,10 +240,7 @@ export class MatchMaintenanceService {
             triggeredBy: 'auto',
           });
           if (result.deletedCount > 0) {
-            await this.notifyAutoReset(
-              profile.user.telegramId,
-              result.deletedCount,
-            );
+            await this.notifyAutoReset(profile.id, result.deletedCount);
           }
         } catch (error) {
           const message =
@@ -292,26 +255,18 @@ export class MatchMaintenanceService {
   }
 
   private async notifyAutoReset(
-    telegramId: string,
+    profileId: string,
     deletedCount: number,
   ): Promise<void> {
-    const botToken = this.getAnyBotToken();
-    const miniAppUrl = this.getMiniAppUrl();
-    if (!botToken || !miniAppUrl || !telegramId) return;
-
     const text = `🔄 Ваша лента обновлена — вернули ${deletedCount} ${pluralize(
       deletedCount,
       'человека',
       'человека',
       'человек',
     )}. Возможно, среди них есть те, кого вы раньше пропустили.`;
-
-    await sendTelegramMessage(botToken, telegramId, text, {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: 'Открыть Match', web_app: { url: miniAppUrl } }],
-        ],
-      },
+    await this.notifications.send(profileId, 'auto_reset', {
+      text,
+      meta: { deletedCount },
     });
   }
 

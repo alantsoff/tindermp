@@ -212,6 +212,11 @@ export type MatchSettings = {
   experienceMax: number | null;
   photoPreference: 'ANY' | 'WITH_PHOTO' | 'WITHOUT_PHOTO';
   hideFromFeed: boolean;
+  notifyMatch: boolean;
+  notifyIncomingLike: boolean;
+  notifyMessage: boolean;
+  notifyInvite: boolean;
+  notifyDigest: boolean;
 };
 
 export type MatchActivityQuadrant =
@@ -383,6 +388,11 @@ const LOCAL_DEMO_ME: MatchMeResponse = {
     experienceMax: null,
     photoPreference: 'ANY',
     hideFromFeed: false,
+    notifyMatch: true,
+    notifyIncomingLike: true,
+    notifyMessage: true,
+    notifyInvite: true,
+    notifyDigest: true,
   },
   streak: { current: 4, nextRewardAt: Date.now() + 86_400_000 },
   superLikeBalance: 3,

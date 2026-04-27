@@ -11,6 +11,7 @@ import { UpsertProfileDto } from './dto/upsert-profile.dto';
 import { DEFAULTS } from './match.constants';
 import { EventLoggerService } from './event-logger.service';
 import { InviteService } from './invite.service';
+import { NotificationService } from './notification.service';
 import {
   addDaysUtc,
   getNumberEnv,
@@ -44,6 +45,7 @@ export class ProfileService {
     private readonly prisma: PrismaService,
     private readonly inviteService: InviteService,
     private readonly eventLogger: EventLoggerService,
+    private readonly notifications: NotificationService,
   ) {}
 
   // Fail-safe: invite-only ON, если переменная не задана. См. match.utils.
@@ -325,6 +327,7 @@ export class ProfileService {
     // просто не вызывается.
     const shouldRedeemInvite = !existingProfile && Boolean(inviteCode);
 
+    let inviterProfileId: string | null = null;
     const profile = await this.prisma.$transaction(async (tx) => {
       const row = await tx.matchProfile.upsert({
         where: { userId },
@@ -388,11 +391,12 @@ export class ProfileService {
 
       if (!existingProfile) {
         if (shouldRedeemInvite && inviteCode) {
-          await this.inviteService.redeemForProfileCreation(
+          const redeemed = await this.inviteService.redeemForProfileCreation(
             tx,
             inviteCode,
             row.id,
           );
+          inviterProfileId = redeemed.ownerProfileId;
         }
         await this.inviteService.issueForProfile(
           row.id,
@@ -421,6 +425,25 @@ export class ProfileService {
 
       return row;
     });
+
+    // Нотификация инвайтеру: после коммита tx, до возврата getMe.
+    // Делаем fire-and-forget — не хотим блокировать ответ пользователю
+    // и точно не хотим, чтобы упавшая отправка ломала создание профиля.
+    if (!existingProfile && inviterProfileId) {
+      const inviteeName = profile.displayName || 'кто-то';
+      void this.notifications
+        .send(inviterProfileId, 'invite_redeemed', {
+          text: `🎉 Ваш инвайт в Match активирован — ${inviteeName} зашёл в сообщество.`,
+          meta: { inviteeProfileId: profile.id },
+        })
+        .catch((error) => {
+          this.logger.warn(
+            `invite_redeemed notification failed for inviter=${inviterProfileId}: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          );
+        });
+    }
 
     await this.prisma.matchSettings.upsert({
       where: { profileId: profile.id },
@@ -512,6 +535,11 @@ export class ProfileService {
         experienceMax: dto.experienceMax ?? null,
         photoPreference: dto.photoPreference,
         hideFromFeed: dto.hideFromFeed,
+        notifyMatch: dto.notifyMatch,
+        notifyIncomingLike: dto.notifyIncomingLike,
+        notifyMessage: dto.notifyMessage,
+        notifyInvite: dto.notifyInvite,
+        notifyDigest: dto.notifyDigest,
       },
       create: {
         profileId,
@@ -530,6 +558,11 @@ export class ProfileService {
         experienceMax: dto.experienceMax ?? null,
         photoPreference: dto.photoPreference ?? 'ANY',
         hideFromFeed: dto.hideFromFeed ?? false,
+        notifyMatch: dto.notifyMatch ?? true,
+        notifyIncomingLike: dto.notifyIncomingLike ?? true,
+        notifyMessage: dto.notifyMessage ?? true,
+        notifyInvite: dto.notifyInvite ?? true,
+        notifyDigest: dto.notifyDigest ?? true,
       },
     });
   }

@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
+  Bell,
   Building2,
   EyeOff,
   Home,
@@ -36,6 +37,11 @@ type SettingsDraft = {
   interestedMarketplaces: MatchMarketplaceValue[];
   experienceBand: ExperienceBandId;
   photoPreference: 'ANY' | 'WITH_PHOTO' | 'WITHOUT_PHOTO';
+  notifyMatch: boolean;
+  notifyIncomingLike: boolean;
+  notifyMessage: boolean;
+  notifyInvite: boolean;
+  notifyDigest: boolean;
 };
 
 type ExperienceBandId = 'ANY' | 'JUNIOR' | 'MIDDLE' | 'SENIOR' | 'EXPERT';
@@ -202,6 +208,11 @@ export default function MatchSettingsPage() {
   const [photoPreference, setPhotoPreference] = useState<
     'ANY' | 'WITH_PHOTO' | 'WITHOUT_PHOTO'
   >('ANY');
+  const [notifyMatch, setNotifyMatch] = useState(true);
+  const [notifyIncomingLike, setNotifyIncomingLike] = useState(true);
+  const [notifyMessage, setNotifyMessage] = useState(true);
+  const [notifyInvite, setNotifyInvite] = useState(true);
+  const [notifyDigest, setNotifyDigest] = useState(true);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -231,6 +242,11 @@ export default function MatchSettingsPage() {
         setPhotoPreference(settingsData.photoPreference ?? 'ANY');
         setNiches(settingsData.interestedNiches.join(', '));
         setHideFromFeed(settingsData.hideFromFeed);
+        setNotifyMatch(settingsData.notifyMatch ?? true);
+        setNotifyIncomingLike(settingsData.notifyIncomingLike ?? true);
+        setNotifyMessage(settingsData.notifyMessage ?? true);
+        setNotifyInvite(settingsData.notifyInvite ?? true);
+        setNotifyDigest(settingsData.notifyDigest ?? true);
         const nextProfile = meData.profile;
         setProfile(nextProfile);
         const snapshot = normalizeDraft({
@@ -247,6 +263,11 @@ export default function MatchSettingsPage() {
           photoPreference: settingsData.photoPreference ?? 'ANY',
           niches: settingsData.interestedNiches.join(', '),
           hideFromFeed: settingsData.hideFromFeed,
+          notifyMatch: settingsData.notifyMatch ?? true,
+          notifyIncomingLike: settingsData.notifyIncomingLike ?? true,
+          notifyMessage: settingsData.notifyMessage ?? true,
+          notifyInvite: settingsData.notifyInvite ?? true,
+          notifyDigest: settingsData.notifyDigest ?? true,
         });
         setSavedSnapshot(JSON.stringify(snapshot));
       } catch (e) {
@@ -298,6 +319,11 @@ export default function MatchSettingsPage() {
       interestedMarketplaces,
       experienceBand,
       photoPreference,
+      notifyMatch,
+      notifyIncomingLike,
+      notifyMessage,
+      notifyInvite,
+      notifyDigest,
     }),
   );
   const isDirty = loaded && savedSnapshot !== currentSnapshot;
@@ -319,6 +345,11 @@ export default function MatchSettingsPage() {
         experienceMax: selectedExperienceBand.max,
         photoPreference,
         hideFromFeed,
+        notifyMatch,
+        notifyIncomingLike,
+        notifyMessage,
+        notifyInvite,
+        notifyDigest,
       });
       await Promise.all([
         qc.invalidateQueries({ queryKey: ['match', 'me'] }),
@@ -591,6 +622,60 @@ export default function MatchSettingsPage() {
             />
           </div>
         </div>
+      </section>
+
+      {/* Уведомления */}
+      <section>
+        <div className="ios-section-header mb-1 flex items-center gap-2">
+          <Bell size={14} /> Уведомления в Telegram
+        </div>
+        <div className="ios-group">
+          {(
+            [
+              ['notifyMatch', 'Новый мэтч', notifyMatch, setNotifyMatch],
+              [
+                'notifyMessage',
+                'Сообщения в чате',
+                notifyMessage,
+                setNotifyMessage,
+              ],
+              [
+                'notifyIncomingLike',
+                'Вас лайкнули',
+                notifyIncomingLike,
+                setNotifyIncomingLike,
+              ],
+              [
+                'notifyInvite',
+                'Активация инвайта',
+                notifyInvite,
+                setNotifyInvite,
+              ],
+              [
+                'notifyDigest',
+                'Ежедневный дайджест',
+                notifyDigest,
+                setNotifyDigest,
+              ],
+            ] as const
+          ).map(([key, label, value, setter]) => (
+            <div
+              key={key}
+              className="flex items-center justify-between px-4 py-2.5"
+            >
+              <div className="text-[15px]">{label}</div>
+              <Toggle
+                checked={value}
+                onChange={setter}
+                ariaLabel={label}
+              />
+            </div>
+          ))}
+        </div>
+        <p className="mt-1 px-3 text-[12px] text-[rgb(var(--ios-label-secondary)/0.65)]">
+          Push приходит от бота Match в Telegram. Сообщения в чате
+          группируются — не больше одного push в 30 минут на пару.
+        </p>
       </section>
 
       {/* Пауза профиля */}

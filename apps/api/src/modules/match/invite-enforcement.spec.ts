@@ -77,7 +77,9 @@ function buildService(overrides?: {
   };
 
   const inviteService = {
-    redeemForProfileCreation: jest.fn().mockResolvedValue(undefined),
+    redeemForProfileCreation: jest
+      .fn()
+      .mockResolvedValue({ ownerProfileId: null }),
     issueForProfile: jest.fn().mockResolvedValue([]),
     statsForProfile: jest.fn().mockResolvedValue({
       invitesAvailable: 0,
@@ -88,6 +90,9 @@ function buildService(overrides?: {
   } as unknown as Mocked<InviteService>;
 
   const eventLogger = { log: jest.fn() };
+  const notifications = {
+    send: jest.fn().mockResolvedValue({ sent: false, reason: 'no_token' }),
+  };
 
   // Мы тестируем только путь до/вокруг redeem, глушим остальные эффекты
   // апсерта и финальный getMe() (тяжёлые include/swipe count) — см. getMeSpy в describe.
@@ -95,9 +100,10 @@ function buildService(overrides?: {
     prisma as never,
     inviteService as never,
     eventLogger as never,
+    notifications as never,
   );
 
-  return { service, prisma, inviteService, eventLogger };
+  return { service, prisma, inviteService, eventLogger, notifications };
 }
 
 describe('ProfileService.upsertProfile — invite-only enforcement', () => {

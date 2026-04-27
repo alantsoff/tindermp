@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EventLoggerService } from './event-logger.service';
-import { sendTelegramMessage } from '../telegram/telegram-send';
+import { NotificationService } from './notification.service';
 
 @Injectable()
 export class ChatService {
@@ -16,45 +16,28 @@ export class ChatService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventLogger: EventLoggerService,
+    private readonly notifications: NotificationService,
   ) {}
 
   private async notifyIncomingMessage(params: {
-    recipientTelegramId?: string | null;
+    recipientProfileId: string;
     senderName: string;
     pairId: string;
     body: string;
   }): Promise<void> {
-    const token = process.env.MATCH_BOT_TOKEN?.trim();
-    const miniAppUrl = process.env.MATCH_MINIAPP_URL?.trim();
-    const recipientTelegramId = params.recipientTelegramId?.trim();
-    if (!token || !miniAppUrl || !recipientTelegramId) return;
-
     const preview =
       params.body.length > 140
         ? `${params.body.slice(0, 137)}...`
         : params.body;
-    const result = await sendTelegramMessage(
-      token,
-      recipientTelegramId,
-      `💬 Новое сообщение в Match\nОт: ${params.senderName}\n\n${preview}`,
-      {
-        reply_markup: {
-          inline_keyboard: [
-            [
-              {
-                text: 'Открыть чат',
-                web_app: { url: `${miniAppUrl}?pair=${params.pairId}` },
-              },
-            ],
-          ],
-        },
-      },
-    );
-    if (!result.ok) {
-      this.logger.warn(
-        `Failed to notify about new message for ${recipientTelegramId}: ${result.error ?? 'unknown'}`,
-      );
-    }
+    // throttleKey=pairId — внутри одной пары при шквале сообщений уходит
+    // максимум одна нотификация в 30 минут (см. NotificationService).
+    await this.notifications.send(params.recipientProfileId, 'message', {
+      text: `💬 Новое сообщение в Match\nОт: ${params.senderName}\n\n${preview}`,
+      webAppPathSuffix: `?pair=${params.pairId}`,
+      buttonText: 'Открыть чат',
+      throttleKey: params.pairId,
+      meta: { pairId: params.pairId },
+    });
   }
 
   private async ensurePairAccess(pairId: string, profileId: string) {
@@ -98,18 +81,12 @@ export class ChatService {
 
     const recipientProfileId =
       pair.profileAId === profileId ? pair.profileBId : pair.profileAId;
-    const [sender, recipient] = await Promise.all([
-      this.prisma.matchProfile.findUnique({
-        where: { id: profileId },
-        select: { displayName: true },
-      }),
-      this.prisma.matchProfile.findUnique({
-        where: { id: recipientProfileId },
-        select: { user: { select: { telegramId: true } } },
-      }),
-    ]);
+    const sender = await this.prisma.matchProfile.findUnique({
+      where: { id: profileId },
+      select: { displayName: true },
+    });
     await this.notifyIncomingMessage({
-      recipientTelegramId: recipient?.user.telegramId,
+      recipientProfileId,
       senderName: sender?.displayName ?? 'Собеседник',
       pairId,
       body: text,

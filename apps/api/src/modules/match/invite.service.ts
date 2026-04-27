@@ -108,7 +108,7 @@ export class InviteService {
     tx: Prisma.TransactionClient,
     codeRaw: string,
     newProfileId: string,
-  ): Promise<void> {
+  ): Promise<{ ownerProfileId: string | null }> {
     const code = normalizeInviteCode(codeRaw);
 
     // Сначала пытаемся найти код в любом состоянии, чтобы вернуть
@@ -120,6 +120,7 @@ export class InviteService {
         usedAt: true,
         revokedAt: true,
         usedByProfileId: true,
+        ownerProfileId: true,
       },
     });
 
@@ -146,7 +147,7 @@ export class InviteService {
       this.logger.log(
         `invite redeem idempotent: code ${code} already claimed by ${newProfileId}`,
       );
-      return;
+      return { ownerProfileId: existing.ownerProfileId ?? null };
     }
 
     if (existing.usedAt || existing.usedByProfileId) {
@@ -202,6 +203,7 @@ export class InviteService {
       },
       tx,
     );
+    return { ownerProfileId: existing.ownerProfileId ?? null };
   }
 
   async issueForProfile(

@@ -17,7 +17,7 @@ import {
   startOfMoscowDay,
   startOfUtcDay,
 } from './match.utils';
-import { sendTelegramMessage } from '../telegram/telegram-send';
+import { NotificationService } from './notification.service';
 
 function normalizePairIds(
   a: string,
@@ -35,6 +35,7 @@ export class SwipeService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventLogger: EventLoggerService,
+    private readonly notifications: NotificationService,
   ) {}
 
   private getLikeLimitPerDay(): number {
@@ -69,66 +70,32 @@ export class SwipeService {
     );
   }
 
-  private async notifyIncomingLike(telegramId: string): Promise<void> {
-    const token = process.env.MATCH_BOT_TOKEN?.trim();
-    const miniAppUrl = process.env.MATCH_MINIAPP_URL?.trim();
-    if (!token || !miniAppUrl) return;
-
-    await sendTelegramMessage(
-      token,
-      telegramId,
-      '❤️ Кому-то понравился ваш профиль в Match. Загляните в ленту — возможно, там ваш будущий мэтч.',
-      {
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: 'Открыть Match', web_app: { url: miniAppUrl } }],
-          ],
-        },
-      },
-    );
+  private async notifyIncomingLike(toProfileId: string): Promise<void> {
+    await this.notifications.send(toProfileId, 'incoming_like', {
+      text: '❤️ Кому-то понравился ваш профиль в Match. Загляните в ленту — возможно, там ваш будущий мэтч.',
+    });
   }
 
   private async notifyNewMatch(
     pairId: string,
     left: {
-      telegramId: string;
+      profileId: string;
       partnerName: string;
       partnerHeadline: string | null;
     },
     right: {
-      telegramId: string;
+      profileId: string;
       partnerName: string;
       partnerHeadline: string | null;
     },
   ): Promise<void> {
-    const token = process.env.MATCH_BOT_TOKEN?.trim();
-    const miniAppUrl = process.env.MATCH_MINIAPP_URL?.trim();
-    if (!token || !miniAppUrl) return;
-
-    const send = async (item: {
-      telegramId: string;
-      partnerName: string;
-      partnerHeadline: string | null;
-    }) => {
-      await sendTelegramMessage(
-        token,
-        item.telegramId,
-        `🔥 У вас новый матч с ${item.partnerName}!\n${item.partnerHeadline ?? ''}`.trim(),
-        {
-          reply_markup: {
-            inline_keyboard: [
-              [
-                {
-                  text: 'Открыть чат',
-                  web_app: { url: `${miniAppUrl}?pair=${pairId}` },
-                },
-              ],
-            ],
-          },
-        },
-      );
-    };
-
+    const send = (item: typeof left) =>
+      this.notifications.send(item.profileId, 'match', {
+        text: `🔥 У вас новый матч с ${item.partnerName}!\n${item.partnerHeadline ?? ''}`.trim(),
+        webAppPathSuffix: `?pair=${pairId}`,
+        buttonText: 'Открыть чат',
+        meta: { pairId },
+      });
     await Promise.all([send(left), send(right)]);
   }
 
@@ -292,7 +259,7 @@ export class SwipeService {
     });
 
     if (shouldNotifyIncomingLike) {
-      void this.notifyIncomingLike(toProfile.user.telegramId).catch((error) => {
+      void this.notifyIncomingLike(toProfile.id).catch((error) => {
         this.logger.warn(`notifyIncomingLike failed: ${String(error)}`);
       });
     }
@@ -314,12 +281,12 @@ export class SwipeService {
     void this.notifyNewMatch(
       pairId,
       {
-        telegramId: fromProfile.user.telegramId,
+        profileId: fromProfile.id,
         partnerName: toProfile.displayName,
         partnerHeadline: toProfile.headline,
       },
       {
-        telegramId: toProfile.user.telegramId,
+        profileId: toProfile.id,
         partnerName: fromProfile.displayName,
         partnerHeadline: fromProfile.headline,
       },

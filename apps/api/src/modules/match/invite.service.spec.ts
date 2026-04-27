@@ -62,7 +62,7 @@ describe('InviteService.redeemForProfileCreation', () => {
 
     await expect(
       service.redeemForProfileCreation(tx, 'ABCD-EFGH', 'same-profile'),
-    ).resolves.toBeUndefined();
+    ).resolves.toEqual({ ownerProfileId: null });
     expect(tx.matchInviteCode.updateMany).not.toHaveBeenCalled();
   });
 });

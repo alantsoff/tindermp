@@ -79,6 +79,8 @@ enum MatchEventType {
   PROFILE_UNPAUSED
   BANNED
   UNBANNED
+  NOTIFICATION_SENT
+  NOTIFICATION_THROTTLED
 }
 
 model User {
@@ -185,6 +187,15 @@ model MatchSettings {
   experienceMax    Int?
   photoPreference  MatchPhotoPreference @default(ANY)
   hideFromFeed     Boolean      @default(false)
+  // Per-type opt-out for Telegram bot push (см. NotificationService).
+  // Дополняют master-флаг MatchProfile.notificationsMuted: NotificationService
+  // сначала смотрит master, потом этот per-kind флаг. По умолчанию все true —
+  // mini-app в Telegram, push из бота — ожидаемое поведение.
+  notifyMatch        Boolean    @default(true)
+  notifyIncomingLike Boolean    @default(true)
+  notifyMessage      Boolean    @default(true)
+  notifyInvite       Boolean    @default(true)
+  notifyDigest       Boolean    @default(true)
   updatedAt        DateTime     @updatedAt
 }
 

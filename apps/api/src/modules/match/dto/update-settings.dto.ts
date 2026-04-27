@@ -90,4 +90,26 @@ export class UpdateSettingsDto {
   @IsOptional()
   @IsBoolean()
   hideFromFeed?: boolean;
+
+  // Per-type opt-out для Telegram bot push. Master-mute живёт отдельно
+  // на MatchProfile.notificationsMuted (не редактируется через эту DTO).
+  @IsOptional()
+  @IsBoolean()
+  notifyMatch?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  notifyIncomingLike?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  notifyMessage?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  notifyInvite?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  notifyDigest?: boolean;
 }

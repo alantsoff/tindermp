@@ -1410,9 +1410,10 @@ export class MatchAdminService {
   }
 
   async liveEvents(limit = 50) {
-    return this.prisma.matchEventLog.findMany({
+    const rows = await this.prisma.matchEventLog.findMany({
       orderBy: { id: 'desc' },
       take: Math.min(Math.max(limit, 1), 200),
     });
+    return rows.map((e) => ({ ...e, id: e.id.toString() }));
   }
 }

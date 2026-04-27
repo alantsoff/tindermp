@@ -8,6 +8,16 @@ import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { isInviteOnlyModeEnabled } from './modules/match/match.utils';
 
+// MatchEventLog.id is BigInt; Express's res.json -> JSON.stringify trips on it
+// and crashes admin endpoints with 500. Per-call .toString() mapping is easy
+// to forget in new endpoints — apply once globally so every BigInt becomes a
+// JSON string transparently.
+(BigInt.prototype as unknown as { toJSON: () => string }).toJSON = function (
+  this: bigint,
+) {
+  return this.toString();
+};
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const allowedOrigins = (process.env.MATCH_CORS_ORIGINS ?? '')

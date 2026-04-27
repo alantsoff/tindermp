@@ -238,9 +238,7 @@ export class InviteService {
       }
       return issued;
     };
-    return txClient
-      ? await run(txClient)
-      : await this.prisma.$transaction(run);
+    return txClient ? await run(txClient) : await this.prisma.$transaction(run);
   }
 
   async issueAdminFree(count: number, ownerProfileId?: string | null) {

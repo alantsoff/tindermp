@@ -20,6 +20,112 @@ function KpiCard({
   );
 }
 
+const NOTIFICATION_KIND_LABELS: Record<string, string> = {
+  match: 'Новый матч',
+  message: 'Сообщение в чате',
+  incoming_like: 'Вас лайкнули',
+  invite_redeemed: 'Активация инвайта',
+  digest: 'Дайджест',
+  pending_likes: 'Pending likes ping',
+  auto_reset: 'Авто-сброс ленты',
+};
+
+const NOTIFICATION_REASON_LABELS: Record<string, string> = {
+  master_muted: 'Master mute (notificationsMuted)',
+  kind_disabled: 'Per-type opt-out',
+  rate_limited: 'Throttle window',
+};
+
+function NotificationsCard({
+  data,
+}: {
+  data: {
+    sent: number;
+    throttled: number;
+    sentByKind: Record<string, number>;
+    throttledByReason: Record<string, number>;
+  };
+}) {
+  const sentEntries = Object.entries(data.sentByKind).sort(
+    (a, b) => b[1] - a[1],
+  );
+  const throttledEntries = Object.entries(data.throttledByReason).sort(
+    (a, b) => b[1] - a[1],
+  );
+  const total = data.sent + data.throttled;
+  const deliveryRate = total > 0 ? Math.round((data.sent / total) * 100) : null;
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+      <div className="mb-3 flex items-baseline justify-between gap-3">
+        <h2 className="font-semibold">Уведомления за 24 часа</h2>
+        <p className="text-xs text-zinc-500">
+          Sent / Throttled — диагностика NotificationService.
+        </p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-3">
+          <p className="text-xs uppercase tracking-wide text-zinc-500">Отправлено</p>
+          <p className="mt-1 text-2xl font-semibold text-emerald-300">
+            {data.sent.toLocaleString('ru-RU')}
+          </p>
+        </div>
+        <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-3">
+          <p className="text-xs uppercase tracking-wide text-zinc-500">Подавлено</p>
+          <p className="mt-1 text-2xl font-semibold text-amber-300">
+            {data.throttled.toLocaleString('ru-RU')}
+          </p>
+        </div>
+        <div className="rounded-lg border border-zinc-800 bg-zinc-950 p-3">
+          <p className="text-xs uppercase tracking-wide text-zinc-500">Доставка</p>
+          <p className="mt-1 text-2xl font-semibold">
+            {deliveryRate == null ? '—' : `${deliveryRate}%`}
+          </p>
+        </div>
+      </div>
+      <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <div>
+          <p className="mb-2 text-xs uppercase tracking-wide text-zinc-500">
+            Sent — по типу
+          </p>
+          {sentEntries.length === 0 ? (
+            <p className="text-sm text-zinc-500">Ничего не уходило за 24 часа.</p>
+          ) : (
+            <ul className="space-y-1 text-sm">
+              {sentEntries.map(([kind, count]) => (
+                <li key={kind} className="flex justify-between border-b border-zinc-800 py-1">
+                  <span className="text-zinc-300">
+                    {NOTIFICATION_KIND_LABELS[kind] ?? kind}
+                  </span>
+                  <span className="font-medium text-zinc-100">{count}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div>
+          <p className="mb-2 text-xs uppercase tracking-wide text-zinc-500">
+            Throttled — по причине
+          </p>
+          {throttledEntries.length === 0 ? (
+            <p className="text-sm text-zinc-500">Ни одного отказа.</p>
+          ) : (
+            <ul className="space-y-1 text-sm">
+              {throttledEntries.map(([reason, count]) => (
+                <li key={reason} className="flex justify-between border-b border-zinc-800 py-1">
+                  <span className="text-zinc-300">
+                    {NOTIFICATION_REASON_LABELS[reason] ?? reason}
+                  </span>
+                  <span className="font-medium text-zinc-100">{count}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const PERIODS_DAY = [7, 30, 60, 90, 180] as const;
 const PERIODS_HOUR = [1, 3, 7, 14] as const;
 
@@ -166,6 +272,8 @@ export default function MatchAdminDashboardPage() {
           </div>
         </div>
       </div>
+
+      <NotificationsCard data={data.notifications24h} />
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">

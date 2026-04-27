@@ -83,6 +83,12 @@ export type AdminOverview = {
   }>;
   marketplaceDistribution: Array<{ marketplace: string; count: number }>;
   workFormatDistribution: Array<{ workFormat: string; count: number }>;
+  notifications24h: {
+    sent: number;
+    throttled: number;
+    sentByKind: Record<string, number>;
+    throttledByReason: Record<string, number>;
+  };
 };
 
 export const matchAdminApi = {

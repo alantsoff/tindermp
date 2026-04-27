@@ -183,6 +183,8 @@ export class MatchAdminService {
       topSpam,
       marketplaceDistribution,
       workFormatDistribution,
+      notifSentByKind,
+      notifThrottledByReason,
     ] = await Promise.all([
       this.prisma.matchProfile.count({
         where: { lastActiveAt: { gte: dayAgo } },
@@ -223,7 +225,42 @@ export class MatchAdminService {
         GROUP BY value
         ORDER BY count DESC
       `,
+      // Нотификации за 24h: разбивка отправленных по kind (видим, какие
+      // фичи реально дёргают пользователей) и пропущенных по reason
+      // (master_muted / kind_disabled / rate_limited — диагностика
+      // настройки троттла и opt-out'ов).
+      this.prisma.$queryRaw<Array<{ kind: string | null; count: bigint }>>`
+        SELECT payload->>'kind' as kind, COUNT(*)::bigint as count
+        FROM "MatchEventLog"
+        WHERE type = 'NOTIFICATION_SENT' AND "createdAt" >= ${dayAgo}
+        GROUP BY 1
+        ORDER BY count DESC
+      `,
+      this.prisma.$queryRaw<Array<{ reason: string | null; count: bigint }>>`
+        SELECT payload->>'reason' as reason, COUNT(*)::bigint as count
+        FROM "MatchEventLog"
+        WHERE type = 'NOTIFICATION_THROTTLED' AND "createdAt" >= ${dayAgo}
+        GROUP BY 1
+        ORDER BY count DESC
+      `,
     ]);
+
+    const sentByKind: Record<string, number> = {};
+    let sentTotal = 0;
+    for (const row of notifSentByKind) {
+      const key = row.kind ?? 'unknown';
+      const count = Number(row.count);
+      sentByKind[key] = count;
+      sentTotal += count;
+    }
+    const throttledByReason: Record<string, number> = {};
+    let throttledTotal = 0;
+    for (const row of notifThrottledByReason) {
+      const key = row.reason ?? 'unknown';
+      const count = Number(row.count);
+      throttledByReason[key] = count;
+      throttledTotal += count;
+    }
 
     const timeseries = await this.prisma.matchDailyAggregate.findMany({
       where: { day: { gte: startOfDay(monthAgo) } },
@@ -260,6 +297,12 @@ export class MatchAdminService {
         workFormat: item.value,
         count: Number(item.count),
       })),
+      notifications24h: {
+        sent: sentTotal,
+        throttled: throttledTotal,
+        sentByKind,
+        throttledByReason,
+      },
     };
   }
 

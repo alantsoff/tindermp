@@ -60,6 +60,14 @@ export default function MatchAdminUserDetailsPage() {
       user?: { telegramId?: string | null; telegramUsername?: string | null } | null;
       spamSignal?: unknown;
       invitesIssued?: unknown;
+      notificationsMuted?: boolean;
+      settings?: {
+        notifyMatch: boolean;
+        notifyIncomingLike: boolean;
+        notifyMessage: boolean;
+        notifyInvite: boolean;
+        notifyDigest: boolean;
+      } | null;
       /** Код, которым зарегистрировались; owner — кто этот код выпустил (пригласивший) */
       invitedBy?: {
         id: string;
@@ -75,6 +83,8 @@ export default function MatchAdminUserDetailsPage() {
   const profile = payload.profile;
   const inviter = profile.invitedBy?.owner;
   const usedInvite = profile.invitedBy;
+  const notifSettings = profile.settings;
+  const masterMuted = profile.notificationsMuted ?? false;
 
   const run = async (fn: () => Promise<unknown>) => {
     setRunning(true);
@@ -191,6 +201,61 @@ export default function MatchAdminUserDetailsPage() {
           <p className="mt-3 text-sm text-zinc-400">
             Нет записи об использовании инвайт-кода: регистрация до внедрения цепочки, обход
             админа, или данные ещё не сопоставлены.
+          </p>
+        )}
+      </div>
+
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+        <div className="flex items-baseline justify-between gap-3">
+          <h3 className="font-semibold">Уведомления (Telegram bot push)</h3>
+          {masterMuted ? (
+            <span className="rounded-full border border-red-500/40 bg-red-500/10 px-2 py-0.5 text-xs text-red-300">
+              Master mute
+            </span>
+          ) : null}
+        </div>
+        {notifSettings ? (
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            {(
+              [
+                ['notifyMatch', 'Новый матч'],
+                ['notifyMessage', 'Сообщения'],
+                ['notifyIncomingLike', 'Вас лайкнули'],
+                ['notifyInvite', 'Активация инвайта'],
+                ['notifyDigest', 'Дайджест'],
+              ] as const
+            ).map(([key, label]) => {
+              const enabled = notifSettings[key];
+              const effectivelyOn = !masterMuted && enabled;
+              return (
+                <div
+                  key={key}
+                  className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
+                >
+                  <span className="text-zinc-300">{label}</span>
+                  <span
+                    className={
+                      effectivelyOn
+                        ? 'text-emerald-300'
+                        : enabled
+                          ? 'text-amber-300'
+                          : 'text-zinc-500'
+                    }
+                  >
+                    {effectivelyOn
+                      ? 'on'
+                      : enabled
+                        ? 'on (master off)'
+                        : 'off'}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="mt-3 text-sm text-zinc-500">
+            У профиля нет MatchSettings — все per-type флаги считаются включёнными
+            (default true).
           </p>
         )}
       </div>

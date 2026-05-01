@@ -1,0 +1,49 @@
+name: Deploy to prod
+
+# Триггеры:
+#  - push в main → авто-деплой
+#  - workflow_dispatch → ручной запуск из UI (для отката / повторного применения)
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Один деплой одновременно. Если в очередь упало два push'а, первый
+# доезжает до конца, второй стартует уже с актуальным main и не дерётся
+# за PM2/migrate.
+concurrency:
+  group: prod-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # Self-hosted runner живёт прямо на проде, поэтому SSH из GitHub
+    # не нужен и fail2ban нам не мешает. Лейбл `prod` (см. инструкцию
+    # установки) гарантирует, что job'а пойдёт именно на этот сервер,
+    # а не на github-hosted ubuntu.
+    runs-on: [self-hosted, prod]
+    timeout-minutes: 20
+
+    steps:
+      - name: Show context
+        run: |
+          echo "Commit:   ${GITHUB_SHA}"
+          echo "Ref:      ${GITHUB_REF}"
+          echo "Actor:    ${GITHUB_ACTOR}"
+          echo "Workdir:  $(pwd)"
+          echo "Hostname: $(hostname)"
+
+      - name: Run deploy script
+        # Переходим в /var/www/match-app — там лежит репо, там запускается
+        # deploy-pull-build.sh, который делает git pull → install → build →
+        # migrate → pm2 restart → health-check (сам по себе уже идемпотентен).
+        # Если репо в другом месте — смени MATCH_APP_DIR в env runner'а.
+        env:
+          MATCH_APP_DIR: ${{ vars.MATCH_APP_DIR || '/var/www/match-app' }}
+          # PNPM_HOME / PATH могут быть не подхвачены в non-login shell.
+          # Подкидываем стандартные пути для node/pnpm/pm2.
+          PATH: /root/.local/share/pnpm:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+        run: |
+          set -euo pipefail
+          cd "$MATCH_APP_DIR"
+          bash scripts/deploy-pull-build.sh

@@ -6,6 +6,9 @@ import { useAdminUsers } from '../_lib/queries';
 import { MARKETPLACE_LABELS, WORK_FORMAT_LABELS } from '../../../m/_lib/labels';
 import { MATCH_ROLES } from '../../../m/_components/RolePicker';
 
+const INPUT_CLASS =
+  'rounded-lg border border-[rgb(var(--hairline-strong))] bg-ios-inset px-3 py-2 text-sm text-ios-label placeholder:text-ios-label-tertiary focus:border-ios-purple focus:outline-none';
+
 export default function MatchAdminUsersPage() {
   const [query, setQuery] = useState('');
   const [role, setRole] = useState('');
@@ -28,18 +31,18 @@ export default function MatchAdminUsersPage() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3">
+      <div className="rounded-xl border border-[rgb(var(--hairline))] bg-ios-elevated p-3">
         <div className="grid gap-2 md:grid-cols-5">
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Поиск: имя, telegramId, username"
-            className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
+            className={INPUT_CLASS}
           />
           <select
             value={role}
             onChange={(event) => setRole(event.target.value)}
-            className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
+            className={INPUT_CLASS}
           >
             <option value="">Роль: все</option>
             {MATCH_ROLES.map((item) => (
@@ -51,7 +54,7 @@ export default function MatchAdminUsersPage() {
           <select
             value={workFormat}
             onChange={(event) => setWorkFormat(event.target.value)}
-            className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
+            className={INPUT_CLASS}
           >
             <option value="">Формат: все</option>
             {(Object.keys(WORK_FORMAT_LABELS) as Array<keyof typeof WORK_FORMAT_LABELS>).map((value) => (
@@ -63,7 +66,7 @@ export default function MatchAdminUsersPage() {
           <select
             value={marketplace}
             onChange={(event) => setMarketplace(event.target.value)}
-            className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
+            className={INPUT_CLASS}
           >
             <option value="">Маркетплейс: все</option>
             {(Object.keys(MARKETPLACE_LABELS) as Array<keyof typeof MARKETPLACE_LABELS>).map((value) => (
@@ -75,7 +78,7 @@ export default function MatchAdminUsersPage() {
           <select
             value={banned}
             onChange={(event) => setBanned(event.target.value)}
-            className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm"
+            className={INPUT_CLASS}
           >
             <option value="">Все статусы</option>
             <option value="1">Только забаненные</option>
@@ -84,9 +87,9 @@ export default function MatchAdminUsersPage() {
         </div>
       </div>
 
-      <div className="overflow-auto rounded-xl border border-zinc-800 bg-zinc-900">
+      <div className="overflow-auto rounded-xl border border-[rgb(var(--hairline))] bg-ios-elevated">
         <table className="w-full min-w-[980px] text-sm">
-          <thead className="bg-zinc-950 text-zinc-400">
+          <thead className="bg-ios-inset text-ios-label-secondary">
             <tr>
               <th className="px-3 py-2 text-left">Пользователь</th>
               <th className="px-3 py-2 text-left">Роль</th>
@@ -103,7 +106,7 @@ export default function MatchAdminUsersPage() {
           <tbody>
             {isLoading ? (
               <tr>
-                <td className="px-3 py-3 text-zinc-500" colSpan={10}>
+                <td className="px-3 py-3 text-ios-label-tertiary" colSpan={10}>
                   Загрузка...
                 </td>
               </tr>
@@ -127,19 +130,19 @@ export default function MatchAdminUsersPage() {
                   shadowBanned?: boolean;
                 };
                 return (
-                  <tr key={row.profileId} className="border-t border-zinc-800">
+                  <tr key={row.profileId} className="border-t border-[rgb(var(--hairline))]">
                     <td className="px-3 py-2">
                       <p className="font-medium">{row.displayName}</p>
-                      <p className="text-xs text-zinc-500">
+                      <p className="text-xs text-ios-label-tertiary">
                         {row.telegramId} {row.telegramUsername ? `(@${row.telegramUsername})` : ''}
                       </p>
                     </td>
                     <td className="px-3 py-2">{row.role}</td>
-                    <td className="px-3 py-2 text-xs text-zinc-400">
+                    <td className="px-3 py-2 text-xs text-ios-label-secondary">
                       <p>создан: {new Date(row.createdAt).toLocaleString('ru-RU')}</p>
                       <p>был онлайн: {new Date(row.lastActiveAt).toLocaleString('ru-RU')}</p>
                     </td>
-                    <td className="px-3 py-2 text-xs text-zinc-400">
+                    <td className="px-3 py-2 text-xs text-ios-label-secondary">
                       <p>{row.workFormats?.join(', ') || '—'}</p>
                       <p>{row.marketplaces?.join(', ') || '—'}</p>
                     </td>
@@ -153,17 +156,17 @@ export default function MatchAdminUsersPage() {
                     <td className="px-3 py-2 text-right">{row.suspicionScore ?? 0}</td>
                     <td className="px-3 py-2">
                       {row.bannedAt ? (
-                        <span className="rounded bg-red-500/20 px-2 py-0.5 text-xs text-red-300">banned</span>
+                        <span className="rounded bg-[rgb(var(--ios-red)/0.18)] px-2 py-0.5 text-xs text-ios-red">banned</span>
                       ) : row.shadowBanned ? (
-                        <span className="rounded bg-amber-500/20 px-2 py-0.5 text-xs text-amber-300">shadow</span>
+                        <span className="rounded bg-[rgb(var(--ios-orange)/0.18)] px-2 py-0.5 text-xs text-ios-orange">shadow</span>
                       ) : (
-                        <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-xs text-emerald-300">ok</span>
+                        <span className="rounded bg-[rgb(var(--ios-green)/0.18)] px-2 py-0.5 text-xs text-ios-green">ok</span>
                       )}
                     </td>
                     <td className="px-3 py-2">
                       <Link
                         href={`/admin/match/users/${row.profileId}`}
-                        className="text-xs text-violet-300"
+                        className="text-xs text-ios-purple hover:opacity-80"
                       >
                         детали
                       </Link>

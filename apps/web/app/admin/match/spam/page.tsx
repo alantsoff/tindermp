@@ -10,24 +10,24 @@ export default function MatchAdminSpamPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900 p-3">
-        <label className="text-sm text-zinc-400">minScore</label>
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[rgb(var(--hairline))] bg-ios-elevated p-3">
+        <label className="text-sm text-ios-label-secondary">minScore</label>
         <input
           type="number"
           min={0}
           max={100}
           value={minScore}
           onChange={(event) => setMinScore(Number(event.target.value))}
-          className="w-24 rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1.5 text-sm"
+          className="w-24 rounded-lg border border-[rgb(var(--hairline-strong))] bg-ios-inset px-2 py-1.5 text-sm text-ios-label focus:border-ios-purple focus:outline-none"
         />
         <button
-          className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm"
+          className="rounded-lg border border-[rgb(var(--hairline-strong))] px-3 py-1.5 text-sm text-ios-label-secondary hover:bg-[rgb(var(--ios-fill-1)/0.12)]"
           onClick={() => refetch()}
         >
           Обновить
         </button>
         <button
-          className="rounded-lg bg-violet-600 px-3 py-1.5 text-sm"
+          className="rounded-lg bg-ios-purple px-3 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
           onClick={async () => {
             await matchAdminApi.recomputeSpam();
             await refetch();
@@ -37,9 +37,9 @@ export default function MatchAdminSpamPage() {
         </button>
       </div>
 
-      <div className="overflow-auto rounded-xl border border-zinc-800 bg-zinc-900">
+      <div className="overflow-auto rounded-xl border border-[rgb(var(--hairline))] bg-ios-elevated">
         <table className="w-full min-w-[820px] text-sm">
-          <thead className="bg-zinc-950 text-zinc-400">
+          <thead className="bg-ios-inset text-ios-label-secondary">
             <tr>
               <th className="px-3 py-2 text-left">Профиль</th>
               <th className="px-3 py-2 text-left">Роль</th>
@@ -51,7 +51,7 @@ export default function MatchAdminSpamPage() {
           <tbody>
             {isLoading ? (
               <tr>
-                <td className="px-3 py-3 text-zinc-500" colSpan={5}>
+                <td className="px-3 py-3 text-ios-label-tertiary" colSpan={5}>
                   Загрузка...
                 </td>
               </tr>
@@ -75,25 +75,25 @@ export default function MatchAdminSpamPage() {
                 const profile = item.profile ?? null;
                 const color =
                   item.suspicionScore >= 60
-                    ? 'text-red-300'
+                    ? 'text-ios-red'
                     : item.suspicionScore >= 40
-                      ? 'text-amber-300'
-                      : 'text-emerald-300';
+                      ? 'text-ios-orange'
+                      : 'text-ios-green';
                 return (
-                  <tr key={item.profileId} className="border-t border-zinc-800 align-top">
+                  <tr key={item.profileId} className="border-t border-[rgb(var(--hairline))] align-top">
                     <td className="px-3 py-2">
                       <p className="font-medium">{profile?.displayName ?? '—'}</p>
-                      <p className="text-xs text-zinc-500">{profile?.id ?? '—'}</p>
+                      <p className="text-xs text-ios-label-tertiary">{profile?.id ?? '—'}</p>
                     </td>
                     <td className="px-3 py-2">{profile?.role ?? '—'}</td>
                     <td className={`px-3 py-2 text-right font-semibold ${color}`}>
                       {item.suspicionScore}
                     </td>
-                    <td className="px-3 py-2 text-xs text-zinc-400">
+                    <td className="px-3 py-2 text-xs text-ios-label-secondary">
                       likeRate={item.likeRateRecent ?? '—'}; peak={item.swipesPerMinutePeak ?? '—'};
                       dup={item.duplicateFirstMsgCount ?? 0}; burst={String(item.invitedBurstFlag)}
                     </td>
-                    <td className="px-3 py-2 text-xs text-zinc-400">
+                    <td className="px-3 py-2 text-xs text-ios-label-secondary">
                       {profile?.bannedAt ? 'banned' : profile?.shadowBanned ? 'shadow' : 'ok'}
                     </td>
                   </tr>

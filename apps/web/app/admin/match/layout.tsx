@@ -39,17 +39,17 @@ export default function MatchAdminLayout({
 
   if (!token || isLoading || !data?.ok) {
     return (
-      <div className="mx-auto max-w-6xl px-4 py-10 text-sm text-zinc-500">
+      <div className="mx-auto max-w-6xl px-4 py-10 text-sm text-ios-label-tertiary">
         Проверяем доступ...
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-6xl space-y-4 px-4 py-6">
+    <div className="mx-auto max-w-6xl space-y-4 px-4 py-6 text-ios-label">
       <div>
         <h1 className="text-2xl font-semibold">Match Admin</h1>
-        <p className="text-sm text-zinc-400">
+        <p className="text-sm text-ios-label-secondary">
           Модерация, инвайты, антиспам и операционная статистика.
         </p>
       </div>
@@ -60,10 +60,10 @@ export default function MatchAdminLayout({
             <Link
               key={item.href}
               href={item.href}
-              className={`rounded-lg border px-3 py-1.5 text-sm ${
+              className={`rounded-lg border px-3 py-1.5 text-sm transition-colors ${
                 active
-                  ? 'border-violet-400 bg-violet-500/20 text-white'
-                  : 'border-zinc-700 text-zinc-300'
+                  ? 'border-ios-purple bg-[rgb(var(--ios-purple)/0.18)] text-ios-purple'
+                  : 'border-[rgb(var(--hairline-strong))] text-ios-label-secondary hover:bg-[rgb(var(--ios-fill-1)/0.12)]'
               }`}
             >
               {item.label}
@@ -72,7 +72,7 @@ export default function MatchAdminLayout({
         })}
         <button
           type="button"
-          className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-300"
+          className="rounded-lg border border-[rgb(var(--hairline-strong))] px-3 py-1.5 text-sm text-ios-label-secondary transition-colors hover:bg-[rgb(var(--ios-fill-1)/0.12)]"
           onClick={() => {
             clearAdminToken();
             router.replace('/admin/login');
